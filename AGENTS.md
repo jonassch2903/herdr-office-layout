@@ -89,6 +89,12 @@ herdr-app shot      # visual spot-check
 
 **Demo mode for visual QA:** temporarily add `"props": { "demo": true }` to the `office-floor` content in the installed layout and `"demo": true` to the rail's props. It renders 12 fixed workers across `web`/`api`/`infra` in all four states, quadruples wandering, and disables floor interactions and the hire button. The checked-in layout must keep demo off.
 
+## Git Workflow
+
+- **Commit every finished change** in this repository as soon as it is complete — the code together with its `README.md`/`RECIPE.md`/`AGENTS.md` updates. Do not leave finished work uncommitted.
+- **Never push.** Pushing is the user's step; the local commit ends the task.
+- Keep a commit scoped to one change; never sweep in unrelated edits or generated editor artifacts (`gpui-kit.d.ts`, `jsconfig.json`).
+
 ## Code Conventions & Common Patterns
 
 ### Formatting and naming
