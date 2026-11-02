@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { agents, spaces, panes, props, run, setAgentOrder, knownAgents } from "herdr";
+import { agents, spaces, panes, props, run, setAgentOrder, knownAgents, terminals } from "herdr";
 import { ink, WALL, SLOT_W, SLOT_H, SCREEN, CATS, RUGS, r, icon, txt, hash, rng, pick, look, deskLook, clutter, seated, standing, cat, room } from "./art.js";
 
 // A pixel-art office: every agent is a little worker at a desk, and each space gets its own
@@ -40,6 +40,13 @@ const THOUGHTS = ["?", "!", "♪", "♥", "...", "☼", "$", "#"];
 const SPOTS = ["cooler", "cooler", "shelfL", "shelfR", "window", "door", "plant", "floor", "floor", "chat", "chat"];
 const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
+// The wall screen is OMP's: live sessions, completed turns and a short activity strip. `turn` is
+// herdr-core's per-terminal count; the strip samples how many OMP workers are busy.
+const OMP = /^omp(?:\.exe)?$/i;
+const isOmp = (x) => OMP.test((x?.app ?? "").trim()) || OMP.test((x?.status?.app ?? "").trim())
+  || OMP.test((x?.agent ?? "").trim()) || OMP.test((x?.program?.name ?? "").trim()) || OMP.test((x?.program?.key ?? "").trim());
+const HIST = 24, HIST_TICKS = 40; // one sample every 40 ticks (~10s): four minutes
+const short = (n) => (n > 9999 ? `${Math.round(n / 1000)}k` : `${n}`);
 // OMP titles look like "π > 🐙 ACT: …" or "π ⠙ 🏷️ AGNT: …": drop the logo, status glyph and
 // label icon, keep the tag and task text. Then only show a title that says something about the
 // work (not a shell path or the program name).
@@ -97,6 +104,8 @@ export default class Office extends View {
     this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false };
     this.list = [];
     this.names = {};     // address → old German name, fixed for the session
+    this.hist = [];      // OMP busy count, one sample every ~10s
+    this.histSeeded = false;
     if (props()?.role) return;
     this.roomView = cx.new(Room, this.roomProps());
     cx.timer.every(250, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
@@ -163,8 +172,14 @@ export default class Office extends View {
   // Four times a second: walkers turn corners. About once a second: who gets up, thoughts, the cat.
   tick() {
     if (!this.geo) return false;
-    const now = Date.now(), slow = this.n++ % 4 === 0;
+    const now = Date.now(), tick = this.n++, slow = tick % 4 === 0;
     let changed = false;
+    if (tick % HIST_TICKS === 0) {
+      const crew = this.demo ? this.list : this.list.filter(isOmp);
+      this.hist.push(crew.filter(busy).length);
+      if (this.hist.length > HIST) this.hist.shift();
+      changed = true;
+    }
     const minute = new Date().getMinutes();
     if (minute !== this.minute) { this.minute = minute; changed = true; }
     for (const a of this.list) {
@@ -294,6 +309,58 @@ export default class Office extends View {
         .child(txt("DVD", fs, "#36404c"))));
   }
 
+  // ---- wall stats -----------------------------------------------------------
+  // OMP's live dashboard: sessions on the floor, their completed turns, status counts and a
+  // four-minute strip of how many OMP workers were busy (`hist` is sampled in tick()). It hangs
+  // between the right bookshelf and the window, or left of the shelves when the wall is narrower;
+  // it is rebuilt every render (only the room under it is retained) and null when neither fits.
+  statsBoard(w, crew, turns) {
+    const bw = 236, bh = 110, mid = Math.round(w / 2);
+    const gapL = mid + 268, gapR = w - 348; // past the right shelf, before the window
+    let x = Math.round((gapL + gapR - bw) / 2);
+    if (x < gapL + 8 || x + bw > gapR - 8) { // no room between the shelf and the window
+      x = 140; // left of the left shelf, beside the sign
+      if (x + bw > mid - 268) return null;
+    }
+    const y = 20, live = crew.length > 0;
+    const count = (st) => crew.filter((a) => a.status === st).length;
+    const bars = Array.from({ length: HIST }, (_, i) => this.hist[i - (HIST - this.hist.length)] ?? 0);
+    const peak = Math.max(1, ...bars), barW = 8;
+    const stat = (c, label, n) => h_flex().items_center().gap(2)
+      .child(div().w(4).h(4).bg(c))
+      .child(txt(label, 10, "#a9b8cc"))
+      .child(txt(String(n), 10, "#fff1d6"));
+    return div().absolute().left(x).top(y).w(bw).h(bh).bg("#2b2f3a").border(3).border_color("#6b3f1f")
+      .child(v_flex().absolute().left(0).top(0).w(bw - 6).h(bh - 6).bg("#121a24").p(7).gap(2).overflow_hidden()
+        .child(h_flex().items_center().gap(4)
+          .child(txt("OMP", 16, "#fff1d6"))
+          .child(txt("STATS", 10, "#7d8a9a"))
+          .child(div().flex_1())
+          .child(div().w(4).h(4).bg(live ? "#5ee08a" : "#5b5b66").id("stats-live")
+            .when(live, (e) => e.loop("opacity", { from: 0.3, to: 1, period: 900 })))
+          .child(txt(live ? "LIVE" : "OFF", 10, live ? "#7ee0a0" : "#7d8a9a")))
+        .child(h_flex().items_end().justify_between()
+          .child(h_flex().items_end().gap(4)
+            .child(txt(String(crew.length), 16, "#fff1d6"))
+            .child(txt("SESSIONS", 10, "#8fa0b8")))
+          .child(h_flex().items_end().gap(4)
+            .child(txt(short(turns), 16, "#e0c040"))
+            .child(txt("TURNS", 10, "#8fa0b8"))))
+        .child(h_flex().justify_between()
+          .child(stat("#5ee08a", "WORKING", count("working")))
+          .child(stat("#e0504a", "NEEDS YOU", count("blocked"))))
+        .child(h_flex().justify_between()
+          .child(stat("#7aa8e0", "DONE", count("done")))
+          .child(stat("#8a90a0", "IDLE", count("idle"))))
+        .child(h_flex().items_center().gap(4)
+          .child(txt("ACTIVITY", 10, "#8fa0b8"))
+          .child(div().flex_1())
+          .child(txt("4 MIN", 8, "#63738a")))
+        .child(h_flex().items_end().gap(1).w(bw - 6 - 14)
+          .children(bars.map((v) => div().w(barW)
+            .h(v ? Math.max(2, Math.round((v / peak) * 16)) : 2).bg(v ? "#5ee08a" : "#26313f")))));
+  }
+
   // The worker, at their seat or out walking. Each leg of a walk animates natively.
   worker(a, k, s) {
     const lk = look(a), t = this.trips[a.address], id = `w-${a.address}`, seat = this.seats[a.address];
@@ -361,9 +428,20 @@ export default class Office extends View {
     this.list = list;
     const usedNames = new Set();
     for (const a of list) this.nameFor(a, usedNames);
+    const crew = p.demo ? list : list.filter(isOmp);
+    const addresses = new Set(crew.map((a) => a.address));
+    const turns = p.demo ? 128 : terminals()
+      .filter((t) => addresses.has(t.address))
+      .reduce((n, t) => n + (Number(t.turn) || 0), 0);
+    if (p.demo && !this.histSeeded) {
+      const R = rng(this.seed ^ 0x51ed);
+      this.hist = Array.from({ length: HIST }, () => 2 + Math.floor(R() * 9));
+      this.histSeeded = true;
+    }
 
     const { width: w, height: h } = this.size, now = new Date(), hour = now.getHours();
     const night = hour >= 19 || hour < 6;
+    const stats = this.statsBoard(w, crew, turns);
     // Agents come in space order: one group of desks per space.
     const groups = [];
     for (const a of list) {
@@ -416,6 +494,7 @@ export default class Office extends View {
     return div().id("office-root").relative().size_full().overflow_hidden().bg("#e2a465")
       .on_size_change((size, cx) => { this.size = size; this.syncRoom(); cx.notify(); })
       .child(this.roomView)
+      .when(!!stats, (e) => e.child(stats))
       .children(groups.filter((g) => g.name).map((g) => {
         const [col, edge] = RUGS[g.rug], rw = g.w + q(16), rh = rows * sh + q(4);
         return r(g.x - q(8), top - q(8), rw, rh, col).border(3).border_color(edge)

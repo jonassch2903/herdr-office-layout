@@ -44,6 +44,8 @@ wood strip opens a new tab running `omp`, as set by the rail's `agent` prop in t
   office cat roams the floor.
 - The clock shows the real time, the window goes from day to sunset to night, and the room dims
   at night while desk lamps come on.
+- A wall-mounted **OMP stats** screen shows live OMP sessions and their completed turns, counts
+  for working / needs you / done / idle, and a four-minute activity strip.
 - Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab, space,
   title and status.
 - Each Herdr space (project) gets its own group of desks on a coloured rug, with its name on a

@@ -21,7 +21,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      clock at `mid-165` (48px, hour marks, real time: long black minute hand, short red hour hand), a door at `mid-40`
      (80px, `#a8643a`, opens to a dark doorway while someone arrives), a notice at `mid+90`, a
      window at `w-340` (day `#8fd0f5` with clouds, 17–19h sunset `#f2a65a`, 19–6h night
-     `#1d2547` with moon and stars), a framed picture at `w-200`, a water cooler at `w-112`.
+     `#1d2547` with moon and stars), a framed picture at `w-200`, a water cooler at `w-112`, and
+     an **OMP stats** screen in the gap between the right bookshelf and the window (or left of the
+     shelves when that gap is too narrow): dark screen in a brown frame, `OMP STATS`, a live dot,
+     sessions, completed turns, status counts and a four-minute activity strip.
    - **Floor** `#e2a465` with `#c98a4f` planks every 22px, seams staggered at random, a few knots.
      A potted plant in the bottom-right corner.
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
@@ -80,6 +83,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   the agent is working on: `a.title`, the terminal title OMP already reports, minus its `π >` or
   spinner/icon prefix (or the tab name when the title is only a shell path or program name),
   wrapped to the slot width so the whole title stays readable.
+- **OMP stats**: the wall screen counts the OMP agents on the floor (`app` is `omp`), sums their
+  completed turns from `terminals()` by address, shows working / needs you / done / idle counts,
+  and plots how many OMP workers were busy over the last four minutes, sampled every ~10s. It
+  hangs between the right bookshelf and the window, or left of the shelves when that gap is
+  narrower; it is drawn each render over the retained room and dims with the night overlay.
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
 - Clicking a worker or their desk runs `agent.focus`. The **Neuen einstellen** button in the strip
@@ -106,12 +114,14 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   door changes. A 250ms timer advances walks (one
   straight leg at a time) and, every fourth tick, rolls for new walks, thoughts and the cat. It
   calls `cx.notify()` only when something changed. Every movement is a native
-  `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`.
+  `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. The
+  wall OMP screen is rebuilt by `render()` from `agents()` and `terminals()`; `tick()` samples its
+  activity strip into `hist` every ~10s.
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, and disables the hire button. The
   preview was taken that way.
-- Uses `agents()`, `spaces()`, `panes()`, `knownAgents()`, `run("agent.focus")`, `run("tab.new")`
-  and `setAgentOrder`. No network, no `exec`, no files outside its folder.
+- Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `run("agent.focus")`,
+  `run("tab.new")` and `setAgentOrder`. No network, no `exec`, no files outside its folder.
 
 ## Watch out
 
@@ -123,6 +133,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - Walkers pass over the name labels in the aisles.
 - Desk titles wrap instead of truncating, so a title longer than the 60-unit aisle reaches into the
   next row (and walkers draw over it); it stays complete either way.
+- The wall stats screen needs the gap between the right bookshelf and the window, or the wall left
+  of the shelves beside the sign. Below about 1290px wide it is left out rather than overlapping
+  the wall furniture.
 - Notify only on real changes (hover included): a redraw re-reports hover, so an unconditional
   `cx.notify()` in `on_hover` loops.
 - After switching layouts back and forth quickly, Herdr can show "This view could not be
@@ -134,6 +147,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - `layout.switch {"name":"office"}` shows the office with one worker per running agent (one row of
   four desks by default), and `herdr-app status` reports no errors.
 - Clicking **Neuen einstellen** opens a tab running `omp`; an empty office shows four spare desks.
+- The wall screen shows the OMP sessions and their turns, working / needs you / done / idle counts,
+  and its activity strip fills over four minutes; starting or finishing an agent updates it.
 - Starting an agent opens the door, and a worker walks in to a new desk and starts typing.
 - When an agent asks for permission its worker jumps and its screen blinks `NEEDS YOU`. When it finishes while
   you're elsewhere, the worker dozes with `zZz`.
