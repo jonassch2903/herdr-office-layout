@@ -8,15 +8,47 @@ import { ink, WALL, SLOT_W, SLOT_H, SCREEN, CATS, RUGS, r, icon, txt, hash, rng,
 // the corridor along the wall, the aisle behind each row of desks, and the lanes past both ends
 // of the rows and between the groups.
 const wood = "#8a5530";
-const DEMO = [["working", "fix login"], ["blocked", "migrate db"], ["done", "write tests"], ["idle", "docs"], ["working", "refactor api"], ["idle", "triage"], ["idle", "lunch"], ["done", "ship it"], ["working", "perf pass"], ["idle", "standup"], ["blocked", "deploy"], ["idle", "coffee"]]
-  .map(([status, tab_name], i) => {
-    const space_name = i < 5 ? "web" : i < 9 ? "api" : "infra";
-    return { address: `demo${i}`, status, tab_name, space: space_name, space_name, title: "", program: null, focused: i === 0 };
-  });
+const DEMO = [
+  ["working", "web-1", "Fix the login form validation"],
+  ["blocked", "api", "Migrate the database schema"],
+  ["done", "web-2", "Write tests for the auth flow"],
+  ["idle", "docs", "Update the API documentation"],
+  ["working", "api-2", "Refactor the request pipeline"],
+  ["idle", "triage", "Triage the open bug reports"],
+  ["idle", "lunch", "Out for lunch"],
+  ["done", "ship", "Ship the release candidate"],
+  ["working", "infra", "Profile the build pipeline"],
+  ["idle", "standup", "Join the daily standup"],
+  ["blocked", "deploy", "Deploy to production"],
+  ["idle", "coffee", "Coffee break"],
+].map(([status, tab_name, title], i) => {
+  const space_name = i < 5 ? "web" : i < 9 ? "api" : "infra";
+  return { address: `demo${i}`, status, tab_name, space: space_name, space_name, title, program: null, focused: i === 0 };
+});
+// Old-fashioned German given names; every worker gets one nobody else on the floor has.
+const NAMES = [
+  "Adelheid", "Albert", "Alfred", "Alois", "Anneliese", "Anton", "Balthasar", "Bärbel", "Bertha", "Brigitte",
+  "Christa", "Dietrich", "Dorothea", "Eckhard", "Edeltraud", "Elfriede", "Else", "Emil", "Erna", "Ernst",
+  "Frieda", "Friedrich", "Gertrud", "Gisela", "Gottfried", "Gudrun", "Günter", "Hannelore", "Hans", "Harald",
+  "Hedwig", "Heinrich", "Heinz", "Helga", "Helmut", "Herbert", "Herta", "Hildegard", "Horst", "Inge",
+  "Ingrid", "Irmgard", "Johann", "Jürgen", "Karl", "Käthe", "Klaus", "Konrad", "Kriemhild", "Kurt",
+  "Liesel", "Lotte", "Ludwig", "Magda", "Manfred", "Margarete", "Marta", "Mechthild", "Monika", "Otto",
+  "Reinhard", "Renate", "Rudolf", "Siegfried", "Sieglinde", "Theodor", "Traudel", "Ulrich", "Ursula", "Ute",
+  "Walburga", "Walter", "Werner", "Wilhelm", "Wolfgang",
+];
 const THOUGHTS = ["?", "!", "♪", "♥", "...", "☼", "$", "#"];
 const SPOTS = ["cooler", "cooler", "shelfL", "shelfR", "window", "door", "plant", "floor", "floor", "chat", "chat"];
 const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
+// OMP titles look like "π > 🐙 ACT: …" or "π ⠙ 🏷️ AGNT: …": drop the logo, status glyph and
+// label icon, keep the tag and task text. Then only show a title that says something about the
+// work (not a shell path or the program name).
+const cleanTitle = (s) => (s ?? "").replace(/^π\s*(?:>\s*)?/u, "").replace(/^[^\p{L}\p{N}]+/u, "").replace(/\s+/g, " ").trim();
+const taskOf = (a) => {
+  const t = cleanTitle(a.title), prog = a.program?.name;
+  const telling = t && t !== prog && !/^[~/]|^[A-Za-z]:\\/.test(t) && !t.includes("@") && t.toLowerCase() !== a.program?.key;
+  return telling ? t : "";
+};
 
 const GAP = 60; // the walkway between two spaces' desks, in slot units
 const DVD = ["#e05a8a", "#5ab0e0", "#e0c040", "#7ee0a0", "#c08ae0", "#f08a4a"];
@@ -62,6 +94,7 @@ export default class Office extends View {
     this.n = 0;
     this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false };
     this.list = [];
+    this.names = {};     // address → old German name, fixed for the session
     if (props()?.role) return;
     this.roomView = cx.new(Room, this.roomProps());
     cx.timer.every(250, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
@@ -223,10 +256,27 @@ export default class Office extends View {
       });
   }
 
+  // Every worker gets a free old German name; newcomers pick one nobody at a desk has.
+  nameFor(a, used) {
+    let name = this.names[a.address];
+    if (!name || used.has(name)) {
+      const free = NAMES.filter((n) => !used.has(n));
+      name = free[Math.floor(Math.random() * free.length)] ?? NAMES[Math.floor(Math.random() * NAMES.length)];
+      this.names[a.address] = name;
+    }
+    used.add(name);
+    return name;
+  }
+
   label(a, x, y, k) {
-    const q = (v) => Math.round(v * k);
-    return h_flex().absolute().left(x).top(y + q(130)).w(q(SLOT_W)).justify_center().gap(q(6)).items_center()
-      .child(icon(a.program, q(14))).child(txt(a.tab_name.slice(0, 16), Math.max(8, q(12)), a.focused ? "#fff8e1" : ink));
+    const q = (v) => Math.round(v * k), fs = Math.max(8, q(12)), sub = Math.max(8, q(10));
+    const task = taskOf(a) || a.tab_name;
+    return v_flex().absolute().left(x).top(y + q(130)).w(q(SLOT_W)).items_center().gap(q(2))
+      .child(h_flex().gap(q(6)).items_center()
+        .child(icon(a.program, q(14)))
+        .child(txt(this.names[a.address] ?? "", fs, a.focused ? "#fff8e1" : ink)))
+      .when(!!task, (e) => e.child(h_flex().w(q(SLOT_W)).justify_center()
+        .child(txt(task, sub, "#5f4a38").max_w(q(SLOT_W) - q(28)).truncate())));
   }
 
   screen(a, k) {
@@ -299,6 +349,8 @@ export default class Office extends View {
     const list = p.demo ? DEMO : agents();
     if (!p.demo) setAgentOrder(list.map((a) => a.address));
     this.list = list;
+    const usedNames = new Set();
+    for (const a of list) this.nameFor(a, usedNames);
 
     const { width: w, height: h } = this.size, now = new Date(), hour = now.getHours();
     const night = hour >= 19 || hour < 6;
@@ -374,10 +426,12 @@ export default class Office extends View {
       .when(hour >= 17 && hour < 19, (e) => e.child(r(0, 0, w, h, "#f2a65a1a")))
       .when(!!hovered, (e) => {
         const x = Math.min(hd.x + sw - 10, w - 200);
+        const who = [this.names[hovered.address], hovered.tab_name].filter(Boolean).join(" · ");
+        const task = taskOf(hovered);
         return e.child(v_flex().absolute().left(x).top(hd.y).w(180).p(8).gap(4).bg("#fff27a").border(2).border_color("#d8c440")
-          .child(txt(hovered.tab_name, 12, ink).truncate())
+          .child(txt(who, 12, ink).truncate())
           .child(txt(hovered.space_name ?? "", 12, "#6b5a4a").truncate())
-          .when(!!hovered.title, (e) => e.child(txt(hovered.title, 12, "#6b5a4a").truncate()))
+          .when(!!task, (e) => e.child(txt(task, 12, "#6b5a4a").truncate()))
           .child(txt(hovered.status.toUpperCase(), 12, hovered.status === "blocked" ? "#a8322a" : ink)));
       })
       .child(v_flex().absolute().left(16).top(14).gap(4).p(8).bg("#fbfbf6").border(3).border_color("#6b3f1f")

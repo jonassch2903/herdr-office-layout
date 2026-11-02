@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each Herdr space (project) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab.
+`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each Herdr space (project) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab. Each worker gets an old-fashioned German name and shows its current task under the desk.
 
 - **Not an npm project.** No `package.json`, lockfile, bundler, transpiler, TypeScript source, tests, or CI. The runtime implementation is two ES modules (~600 lines) plus a layout JSON and a vendored font.
 - **Runtime:** the Herdr desktop app and its embedded **gpui-shell** JavaScript mod runtime (generated typings observed for gpui-shell 0.7.1). Node/Bun are not used.
@@ -22,7 +22,7 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 | `office-rail` (fixed 28 px) | `{role: "rail"}` | Active space / tab strip |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
-The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:65`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
+The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:98`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
 
 ```mermaid
 flowchart TD
@@ -38,7 +38,7 @@ flowchart TD
   N --> D[render: room, rugs, desks, labels, cat, workers, overlays, hover note]
 ```
 
-**Floor pipeline (`main.js:282-385`):**
+**Floor pipeline (`main.js:332-440`):**
 
 1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder(addresses)` every render.
 2. Group **contiguous** agents by `space`; each group gets a rug color from `hash(space) % RUGS.length`, bumped once if it equals the previous group.
@@ -49,9 +49,9 @@ flowchart TD
 
 **Retained view:** only the room is a nested `View` (`cx.new(Room, …)`). `Room.render()` calls `room(w, h, {seed, now, doorOpen})` from `art.js`, which draws wall, floor, wall furniture, cooler, and plant — **not** desks, rugs, labels, workers, or cat. `syncRoom()` JSON-compares `{w, h, seed, at, door}` (`at` floored to the minute) and calls `set_props` only when the key changes.
 
-**Simulation (`tick`, `main.js:129-168`):** a single `cx.timer.every(250, …)` advances at most one walkway leg per walker per tick; every fourth tick (~1 s) rolls new trips and thoughts. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). The timer calls `cx.notify()` only when `tick()` reports a real change.
+**Simulation (`tick`, `main.js:162-201`):** a single `cx.timer.every(250, …)` advances at most one walkway leg per walker per tick; every fourth tick (~1 s) rolls new trips and thoughts. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). The timer calls `cx.notify()` only when `tick()` reports a real change.
 
-**Art (`art.js`):** stateless pixel-art library. Sprites are rows of palette letters (`.` transparent); `sprite()` emits one `div` per horizontal color run. All appearance is deterministic: worker looks from `hash(agent.address)`, desk clutter from `hash("desk" + slot) ^ sessionSeed`, room art from a per-view seed. Wandering, thoughts, and cat destinations use unseeded `Math.random()`.
+**Art (`art.js`):** stateless pixel-art library. Sprites are rows of palette letters (`.` transparent); `sprite()` emits one `div` per horizontal color run. All appearance is deterministic: worker looks from `hash(agent.address)`, desk clutter from `hash("desk" + slot) ^ sessionSeed`, room art from a per-view seed. Wandering, thoughts, cat destinations, and new worker names use unseeded `Math.random()`.
 
 **Animation:** native `.transition("left"/"top")`, `.loop(...)`, and `.frames(...)` only; there is no per-frame animation code. Stable `.id()` values are mandatory for these elements.
 
@@ -100,8 +100,8 @@ herdr-app shot      # visual spot-check
 
 ### State and errors
 
-- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `n`, `cat`, `list`.
-- `render()` is impure: it sets `demo`, `list`, `seats`, `trips`, `known`, and `door`. Do not assume a pure render or safe concurrent mutation.
+- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `n`, `cat`, `list`, `names`.
+- `render()` is impure: it sets `demo`, `list`, `names`, `seats`, `trips`, `known`, and `door`. Do not assume a pure render or safe concurrent mutation.
 - No `try`/`catch` or logging. Use optional chaining and defaults: `props() ?? {}`, `SCREEN[status] ?? SCREEN.idle`, `pane?.program?.name ?? "Terminal"`.
 - No dependency injection or service container: import host APIs directly from `gpui-kit`/`gpui-base`/`herdr`, and keep drawing helpers in `./art.js`.
 - Async is limited to `cx.spawn(async () => { const ag = (await knownAgents()).find(x => x.installed); … })` for empty-desk clicks. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
@@ -111,7 +111,7 @@ herdr-app shot      # visual spot-check
 - Build UI with `div()`, `h_flex()`, `v_flex()`; absolute positioning is normal. There is no DOM, HTML, CSS, or WebView.
 - Two scale units: `s` is screen px per **art** pixel (sprites); `k = s / 3` is layout px per **design** unit (desks, slots, geometry). Use `s` for sprites and `q(v) = Math.round(v * k)` for layout values.
 - Desk slots are 170×190 design units. Walkways are `{r, x}` places: `r = -1` is the wall corridor (`WALL - 40`), `r >= 0` is the aisle behind desk row `r`; seats add `seat: y`. `path()` routes seat → row aisle → nearest side lane → target row → target seat.
-- Wall/furniture positions used by `spotPlace()` (`main.js:119-126`) are hand-matched to raw pixel coordinates in `room()` (`art.js:141-179`). Move both together.
+- Wall/furniture positions used by `spotPlace()` (`main.js:152-159`) are hand-matched to raw pixel coordinates in `room()` (`art.js:141-179`). Move both together.
 - Night (`hour >= 19 || hour < 6`) and dusk (`17–19`) thresholds are duplicated in `main.js` and `art.js`; keep them in sync.
 - Walkers passing over name labels in aisles is a documented visual caveat (`RECIPE.md` "Watch out"), not a walkway bug.
 
@@ -144,7 +144,7 @@ herdr-app shot      # visual spot-check
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 27–38, `Room` 41–48, `init` 50–68, `path()` 87–106, `tick()` 129–168, `desk()` 191–224, `screen()` 232–252, `worker()` 254–280, `render()` 282–385 |
+| `office/mods/office/main.js` | `Office` view: `fit()` 59–69, `Room` 73–80, `init` 83–101, `path()` 120–139, `tick()` 162–201, `desk()` 224–258, `nameFor()` 260–269, `label()` 271–280, `screen()` 282–302, `worker()` 304–330, `render()` 332–440 |
 | `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 44–51, seated/standing/cat 74–100, room 141–179, rugs/screens 183–198, desk clutter 200–209 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |
@@ -176,7 +176,7 @@ Grounded in `office/RECIPE.md` "Done when":
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; hovering a desk shows tab, space, title, and status; clicking an empty desk opens a tab with the first installed agent.
+6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking an empty desk opens a tab with the first installed agent.
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats

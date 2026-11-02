@@ -33,7 +33,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      columns. A slot holds a monitor (66×44 `#2b2f3a`, 54×34 screen), a desk
      (`#f0dcb0` top, `#d4b27c` front, legs), keyboard, mug, desk lamp, a PC tower (light or dark)
      and one random piece of clutter (papers, plant, cactus, photo, rubber duck, or nothing). The
-     worker's program icon and tab name (16 chars, 12px) sit 130 down. The rest of the slot, 130
+     worker's program icon and old German given name (12px) sit 130 down, with the current task
+     (the agent's terminal title, 10px, truncated) on the line below. The rest of the slot, 130
      to 190, is the aisle. Spare slots show an empty chair.
    - **Workers**: pixel sprites at `s` screen px per art pixel, `s` in half-pixel steps and
      `k = s / 3`, so desks and workers always scale together. Seated (16×20, from
@@ -71,11 +72,16 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   to their desk.
 - **Thoughts**: now and then a seated worker shows `?`, `!`, `♪`, `♥`, `...`, `☼`, `$` or `#`
   for a few seconds.
+- **Names and tasks**: each worker draws an old-fashioned German given name, unique among the
+  agents on the floor and kept for the session. Under every occupied desk, below the name, is what
+  the agent is working on: `a.title`, the terminal title OMP already reports, minus its `π >` or
+  spinner/icon prefix (or the tab name when the title is only a shell path or program name),
+  truncated to the slot.
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
 - Clicking a worker or their desk runs `agent.focus`. Clicking an empty desk opens a tab in that desk's
-  space with the first installed agent from `knownAgents()`. Hovering a desk shows a yellow sticky note: tab,
-  space, title, status. Desk order follows `agents()` and is passed to `setAgentOrder`.
+  space with the first installed agent from `knownAgents()`. Hovering a desk shows a yellow sticky note:
+  name, tab, space, title, status. Desk order follows `agents()` and is passed to `setAgentOrder`.
 - **Fit**: tries 2–6 rows, each space getting `ceil(n / rows)` columns (at least 3 when there is one
   space), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win
   only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
@@ -123,4 +129,5 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   you're elsewhere, the worker dozes with `zZz`.
 - Idle workers get up within a minute or so, walk the aisles and lanes without crossing desks,
   and walk back. They return at once when their agent starts working.
-- Clicking a worker focuses that agent's terminal. Hovering a desk shows its sticky note.
+- Clicking a worker focuses that agent's terminal. Every desk shows the worker's name and current
+  task; hovering it shows the full sticky note.

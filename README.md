@@ -38,11 +38,13 @@ running your most-used installed agent (Herdr's `tab.new`).
   a chat. They keep to the walkways and hurry back when their agent starts working.
 - New agents walk in through the door to their desk.
 - Every worker looks different (hair, skin, hairstyle, glasses), and their shirt colour follows the
-  kind of agent. Desks get random clutter, and an office cat roams the floor.
+  kind of agent. Each gets an old-fashioned German name and a line under the desk with what they
+  are working on, taken from the terminal title OMP reports. Desks get random clutter, and an
+  office cat roams the floor.
 - The clock shows the real time, the window goes from day to sunset to night, and the room dims
   at night while desk lamps come on.
-- Click a worker to jump to that agent. Hover a desk for a sticky note with its tab, space, title
-  and status.
+- Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab, space,
+  title and status.
 - Each Herdr space (project) gets its own group of desks on a coloured rug, with its name on a
   tag. Click an empty desk to start an agent in that space.
 - Desks sit in two rows (more when needed) and shrink to fit any number of agents; workers
