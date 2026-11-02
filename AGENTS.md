@@ -18,11 +18,11 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 
 | Layout block | Props | Mod behavior |
 | --- | --- | --- |
-| `office-floor` (weight 1.15, `window_drag`) | none | Full office: simulation, room view, timer |
-| `office-rail` (fixed 28 px) | `{role: "rail"}` | Active space / tab strip |
+| `office-floor` (fixed 400 px, `window_drag`) | none | Full office: simulation, room view, timer |
+| `office-rail` (fixed 28 px) | `{role: "rail", demo}` | Active space / tab strip and **Neuen einstellen** |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
-The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:98`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
+The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:83`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
 
 ```mermaid
 flowchart TD
@@ -87,7 +87,7 @@ herdr-app shot      # visual spot-check
 - **Do not use `herdr-app check` as a gate.** It aborts with a native panic on any mod using `.transition(...)` (including this one). Verify with `layout.switch`, `herdr-app status`, and `herdr-app shot`.
 - Generated `gpui-kit.d.ts` and `jsconfig.json` are per-machine editor artifacts; they are gitignored. Do not edit, commit, or hand-copy them.
 
-**Demo mode for visual QA:** temporarily add `"props": { "demo": true }` to the `office-floor` content in the installed layout. It renders 12 fixed workers across `web`/`api`/`infra` in all four states, quadruples wandering, and disables interactions. The checked-in layout must keep demo off.
+**Demo mode for visual QA:** temporarily add `"props": { "demo": true }` to the `office-floor` content in the installed layout and `"demo": true` to the rail's props. It renders 12 fixed workers across `web`/`api`/`infra` in all four states, quadruples wandering, and disables floor interactions and the hire button. The checked-in layout must keep demo off.
 
 ## Code Conventions & Common Patterns
 
@@ -104,7 +104,7 @@ herdr-app shot      # visual spot-check
 - `render()` is impure: it sets `demo`, `list`, `names`, `seats`, `trips`, `known`, and `door`. Do not assume a pure render or safe concurrent mutation.
 - No `try`/`catch` or logging. Use optional chaining and defaults: `props() ?? {}`, `SCREEN[status] ?? SCREEN.idle`, `pane?.program?.name ?? "Terminal"`.
 - No dependency injection or service container: import host APIs directly from `gpui-kit`/`gpui-base`/`herdr`, and keep drawing helpers in `./art.js`.
-- Async is limited to `cx.spawn(async () => { const ag = (await knownAgents()).find(x => x.installed); … })` for empty-desk clicks. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
+- Async is limited to `cx.spawn(async () => { const ag = (await knownAgents()).find(x => x.installed); … })` for the strip's **Neuen einstellen** button. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
 
 ### Rendering and geometry
 
@@ -117,7 +117,7 @@ herdr-app shot      # visual spot-check
 
 ### Interaction and animation
 
-- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })` or, on empty desks, `run("tab.new", { space?, argv: agent.run })`.
+- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button calls `run("tab.new", { argv: agent.run })` with the first installed agent.
 - Hover: track only a real change before `cx.notify()`. A redraw re-reports hover, so an unconditional notify loops.
 - Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `cat`). Without one, the animation restarts on every render.
 - `setAgentOrder(addresses)` publishes desk order for `agent.next`/`agent.prev`; keep it on the floor and skip it only in demo mode.
@@ -144,7 +144,7 @@ herdr-app shot      # visual spot-check
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 59–69, `Room` 73–80, `init` 83–101, `path()` 120–139, `tick()` 162–201, `desk()` 224–258, `nameFor()` 260–269, `label()` 271–280, `screen()` 282–302, `worker()` 304–330, `render()` 332–440 |
+| `office/mods/office/main.js` | `Office` view: `fit()` 59–69, `Room` 73–80, `init` 83–101, `path()` 120–139, `tick()` 162–201, `desk()` 224–250, `nameFor()` 252–261, `label()` 263–272, `screen()` 274–294, `worker()` 296–322, `render()` 324–441 |
 | `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 44–51, seated/standing/cat 74–100, room 141–179, rugs/screens 183–198, desk clutter 200–209 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |
@@ -172,11 +172,11 @@ herdr-app shot      # visual spot-check
 Grounded in `office/RECIPE.md` "Done when":
 
 1. Install, switch to `office`, and confirm `herdr-app status` reports no errors; capture `herdr-app shot`.
-2. One worker per running agent; desk order follows `agents()`; each named space has its rug and tag.
+2. One worker per running agent; one row of four desks by default; desk order follows `agents()`; each named space has its rug and tag.
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking an empty desk opens a tab with the first installed agent.
+6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** in the strip opens a tab with the first installed agent.
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats

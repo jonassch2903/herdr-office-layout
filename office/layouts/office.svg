@@ -20,6 +20,7 @@
   <rect x="25" y="31" width="6" height="6" fill="#c9504f"/><rect x="61" y="31" width="6" height="6" fill="#4f7dc9"/>
   <rect x="97" y="31" width="6" height="6" fill="#5aa064"/><rect x="133" y="31" width="6" height="6" fill="#8a62b8"/>
   <rect y="44" width="160" height="5" fill="#8a5530"/>
+  <rect x="120" y="45" width="34" height="3" fill="#fbfbf6" stroke="#6b3f1f" stroke-width="0.5"/>
   <rect x="4" y="49" width="152" height="47" fill="#5c3418"/>
   <rect x="6" y="51" width="148" height="4" fill="#c99a62"/>
   <rect x="6" y="55" width="148" height="39" fill="#1e2230"/>

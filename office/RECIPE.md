@@ -13,7 +13,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 `background #1e2230`, `accent #e2a465`, `border #8a5530`. Pixel text is `PxPlus IBM VGA 8x16`
 (shipped in `mods/office/fonts/`). Nothing is rounded. Top to bottom:
 
-1. **Office**, weight 1.15. Dragging it moves the window.
+1. **Office**, fixed 400px tall. Dragging it moves the window.
    - **Wall**, 150px: upper wall `#c3cfe0` (6px `#9aa9bf` band at the top), wainscot `#8796b0`
      from 80px with a 4px `#6e7c96` rail, 10px `#7a4a28` skirting.
    - **On the wall**, placed from the midline `mid` and the right edge `w`: bookshelves at
@@ -26,16 +26,17 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      A potted plant in the bottom-right corner.
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
      `N on the clock` (12px).
-   - **Desks**: slots of 170×190 at scale k, in at least two rows, one group of columns per
+   - **Desks**: slots of 170×190 at scale k, one row of four by default (more rows only
+     when they fit better), one group of columns per
      space (project), groups 60k apart, centred, starting `40k` below the wall. Each group sits
      on a solid rug (a colour per space, never the same as its neighbour, with an inner border)
-     with the space name on a tag at its top-left corner. A single space gets at least three
+     with the space name on a tag at its top-left corner. A single space gets at least four
      columns. A slot holds a monitor (66×44 `#2b2f3a`, 54×34 screen), a desk
      (`#f0dcb0` top, `#d4b27c` front, legs), keyboard, mug, desk lamp, a PC tower (light or dark)
      and one random piece of clutter (papers, plant, cactus, photo, rubber duck, or nothing). The
      worker's program icon and old German given name (12px) sit 130 down, with the current task
-     (the agent's terminal title, 10px, truncated) on the line below. The rest of the slot, 130
-     to 190, is the aisle. Spare slots show an empty chair.
+     (the agent's terminal title, 10px, wrapped across the slot width) on the lines below. The rest
+     of the slot, 130 to 190, is the aisle. Spare slots show an empty chair.
    - **Workers**: pixel sprites at `s` screen px per art pixel, `s` in half-pixel steps and
      `k = s / 3`, so desks and workers always scale together. Seated (16×20, from
      behind, in a `#3d4454` office chair) or standing (12×17, front or back view, legs swinging).
@@ -44,8 +45,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      `codex #2f3640`, `gemini #4f7dc9`, `opencode #8a62b8`, `pi #e58fb6`, `grok #5b5b66`, ...),
      otherwise random.
    - **Cat**: a 10×7 sprite in a random coat, roaming the walkways.
-2. **Strip**, 28px `#8a5530`: `space / tab` in `#fff1d6`.
-3. **Terminals**, weight 1, 10px side padding: the active tab, every pane (a lone one too) in a
+2. **Strip**, 28px `#8a5530`: `space / tab` in `#fff1d6`, and a cream **Neuen einstellen**
+   button on the right.
+3. **Terminals**, weight 1, 12px side padding and no vertical padding, so the panes reach the bottom:
+   the active tab, every pane (a lone one too) in a
    4px `#5c3418` frame (`#e2a465` when focused), 10px apart, with a 26px `#c99a62` header: program
    icon and name, status in capitals on the right (`NEEDS YOU` in `#a8322a` when blocked).
 
@@ -76,13 +79,14 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   agents on the floor and kept for the session. Under every occupied desk, below the name, is what
   the agent is working on: `a.title`, the terminal title OMP already reports, minus its `π >` or
   spinner/icon prefix (or the tab name when the title is only a shell path or program name),
-  truncated to the slot.
+  wrapped to the slot width so the whole title stays readable.
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
-- Clicking a worker or their desk runs `agent.focus`. Clicking an empty desk opens a tab in that desk's
-  space with the first installed agent from `knownAgents()`. Hovering a desk shows a yellow sticky note:
-  name, tab, space, title, status. Desk order follows `agents()` and is passed to `setAgentOrder`.
-- **Fit**: tries 2–6 rows, each space getting `ceil(n / rows)` columns (at least 3 when there is one
+- Clicking a worker or their desk runs `agent.focus`. The **Neuen einstellen** button in the strip
+  opens a tab in the active space with the first installed agent from `knownAgents()`. Hovering a
+  desk shows a yellow sticky note: name, tab, space, title, status. Desk order follows `agents()`
+  and is passed to `setAgentOrder`.
+- **Fit**: tries 1–6 rows, each space getting `ceil(n / rows)` columns (at least 4 when there is one
   space), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win
   only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
 
@@ -101,8 +105,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   straight leg at a time) and, every fourth tick, rolls for new walks, thoughts and the cat. It
   calls `cx.notify()` only when something changed. Every movement is a native
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`.
-- `props: {demo: true}` on `office-floor` fills it with 12 sample workers in every state, in three
-  spaces, who wander four times as often. The preview was taken that way.
+- `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
+  every state, in three spaces, who wander four times as often, and disables the hire button. The
+  preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `knownAgents()`, `run("agent.focus")`, `run("tab.new")`
   and `setAgentOrder`. No network, no `exec`, no files outside its folder.
 
@@ -114,6 +119,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - Hot reload doesn't always fire through a symlinked mod folder: `layout.switch` away and back.
 - Loops and transitions need a stable `.id()`, or they restart every render.
 - Walkers pass over the name labels in the aisles.
+- Desk titles wrap instead of truncating, so a title longer than the 60-unit aisle reaches into the
+  next row (and walkers draw over it); it stays complete either way.
 - Notify only on real changes (hover included): a redraw re-reports hover, so an unconditional
   `cx.notify()` in `on_hover` loops.
 - After switching layouts back and forth quickly, Herdr can show "This view could not be
@@ -122,8 +129,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 
 ## Done when
 
-- `layout.switch {"name":"office"}` shows the office with one worker per running agent, and
-  `herdr-app status` reports no errors.
+- `layout.switch {"name":"office"}` shows the office with one worker per running agent (one row of
+  four desks by default), and `herdr-app status` reports no errors.
+- Clicking **Neuen einstellen** opens a tab with the first installed agent; an empty office shows
+  four spare desks.
 - Starting an agent opens the door, and a worker walks in to a new desk and starts typing.
 - When an agent asks for permission its worker jumps and its screen blinks `NEEDS YOU`. When it finishes while
   you're elsewhere, the worker dozes with `zZz`.

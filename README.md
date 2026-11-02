@@ -21,8 +21,8 @@ Ask your agent to add this layout (it reads every file first), or by hand:
 `ctrl-shift-l` cycles back to your previous layout. Delete the copies to remove it.
 
 Nothing to install: the pixel font ships with the mod. It makes no network requests, runs no
-programs of its own and reads no files outside its folder. Clicking an empty desk opens a new tab
-running your most-used installed agent (Herdr's `tab.new`).
+programs of its own and reads no files outside its folder. Clicking **Neuen einstellen** in the
+wood strip opens a new tab running your most-used installed agent (Herdr's `tab.new`).
 
 ## The office
 
@@ -46,13 +46,14 @@ running your most-used installed agent (Herdr's `tab.new`).
 - Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab, space,
   title and status.
 - Each Herdr space (project) gets its own group of desks on a coloured rug, with its name on a
-  tag. Click an empty desk to start an agent in that space.
-- Desks sit in two rows (more when needed) and shrink to fit any number of agents; workers
-  scale with them and stay crisp.
+  tag.
+- One row of four desks shows by default; more desks (and rows when they fit better) appear as
+  agents join, and everything shrinks to fit. Workers scale with them and stay crisp.
+- Click **Neuen einstellen** in the strip below the office to start an agent.
 - Workers keep to their own line in the walkways and wait for each other (and the cat).
 
-Under the office a wood strip shows the current space and tab, and your terminals sit below in
-wood frames.
+Under the office a wood strip shows the current space and tab plus the **Neuen einstellen**
+button, and your terminals get the rest of the window in wood frames.
 
 ## Credits
 
