@@ -5,7 +5,7 @@
   "terminal_padding": [0, 12], "resizable": false,
   "children": [
     { "id": "office-floor", "type": "block", "size": { "px": 400 }, "window_drag": true, "content": { "mod": "office" } },
-    { "id": "office-rail", "type": "block", "size": { "px": 28 }, "content": { "mod": "office", "props": { "role": "rail", "demo": false } } },
+    { "id": "office-rail", "type": "block", "size": { "px": 28 }, "content": { "mod": "office", "props": { "role": "rail", "demo": false, "agent": "omp" } } },
     { "id": "office-desks", "type": "block", "size": { "weight": 1 }, "padding": [0, 10], "background": "#8a5530",
       "content": { "tab": "active", "pane": { "gap": 10, "radius": 0, "lone": true, "background": "#1e2230",
         "border": { "width": 4, "color": "#5c3418" }, "focus": { "width": 4, "color": "#e2a465" },

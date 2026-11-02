@@ -344,9 +344,13 @@ export default class Office extends View {
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .on_click((_e, cx) => {
             if (demo) return;
+            const want = p.agent; // the program to start ("omp" in the layout); unset: most-used installed
             cx.spawn(async () => {
-              const ag = (await knownAgents()).find((x) => x.installed);
-              run("tab.new", { ...(ag ? { argv: ag.run } : {}) });
+              const known = await knownAgents();
+              const ag = want
+                ? known.find((x) => x.installed && (x.key === want || x.run[0] === want))
+                : known.find((x) => x.installed);
+              run("tab.new", { ...(ag ? { argv: ag.run } : want ? { argv: [want] } : {}) });
             });
           })
           .child(txt("Neuen einstellen", 12, ink)));

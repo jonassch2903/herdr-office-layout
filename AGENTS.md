@@ -19,10 +19,10 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 | Layout block | Props | Mod behavior |
 | --- | --- | --- |
 | `office-floor` (fixed 400 px, `window_drag`) | none | Full office: simulation, room view, timer |
-| `office-rail` (fixed 28 px) | `{role: "rail", demo}` | Active space / tab strip and **Neuen einstellen** |
+| `office-rail` (fixed 28 px) | `{role: "rail", demo, agent}` | Active space / tab strip and **Neuen einstellen**; `agent` names the program to start (`"omp"` here) |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
-The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:83`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
+The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:100`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
 
 ```mermaid
 flowchart TD
@@ -117,20 +117,20 @@ herdr-app shot      # visual spot-check
 - Build UI with `div()`, `h_flex()`, `v_flex()`; absolute positioning is normal. There is no DOM, HTML, CSS, or WebView.
 - Two scale units: `s` is screen px per **art** pixel (sprites); `k = s / 3` is layout px per **design** unit (desks, slots, geometry). Use `s` for sprites and `q(v) = Math.round(v * k)` for layout values.
 - Desk slots are 170×190 design units. Walkways are `{r, x}` places: `r = -1` is the wall corridor (`WALL - 40`), `r >= 0` is the aisle behind desk row `r`; seats add `seat: y`. `path()` routes seat → row aisle → nearest side lane → target row → target seat.
-- Wall/furniture positions used by `spotPlace()` (`main.js:152-159`) are hand-matched to raw pixel coordinates in `room()` (`art.js:141-179`). Move both together.
+- Wall/furniture positions used by `spotPlace()` (`main.js:154-162`) are hand-matched to raw pixel coordinates in `room()` (`art.js:141-179`). Move both together.
 - Night (`hour >= 19 || hour < 6`) and dusk (`17–19`) thresholds are duplicated in `main.js` and `art.js`; keep them in sync.
 - Walkers passing over name labels in aisles is a documented visual caveat (`RECIPE.md` "Watch out"), not a walkway bug.
 
 ### Interaction and animation
 
-- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button calls `run("tab.new", { argv: agent.run })` with the first installed agent.
+- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button starts the rail's `agent` prop (`"omp"` in the layout) via `run("tab.new", { argv: agent.run })`, or `argv: [agent]` when Herdr's table does not know that program; with no prop it falls back to the first installed agent.
 - Hover: track only a real change before `cx.notify()`. A redraw re-reports hover, so an unconditional notify loops.
 - Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `cat`). Without one, the animation restarts on every render.
 - `setAgentOrder(addresses)` publishes desk order for `agent.next`/`agent.prev`; keep it on the floor and skip it only in demo mode.
 
 ### Host data contracts
 
-`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.name`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.status`, `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously).
+`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.name`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.status`, `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously). It only lists programs with a `run` in Herdr's table (plus `programs.json`): `omp` is not one of them, so the rail's `agent: "omp"` starts as the bare command `["omp"]`.
 
 ### Invariants and gotchas
 
@@ -150,7 +150,7 @@ herdr-app shot      # visual spot-check
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 59–69, `Room` 73–80, `init` 83–101, `path()` 120–139, `tick()` 162–201, `desk()` 224–250, `nameFor()` 252–261, `label()` 263–272, `screen()` 274–294, `worker()` 296–322, `render()` 324–441 |
+| `office/mods/office/main.js` | `Office` view: `fit()` 59–71, `Room` 75–82, `init` 85–103, `path()` 122–141, `tick()` 164–203, `desk()` 226–251, `nameFor()` 254–263, `label()` 265–274, `screen()` 276–295, `worker()` 298–324, `render()` 326–449 |
 | `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 44–51, seated/standing/cat 74–100, room 141–179, rugs/screens 183–198, desk clutter 200–209 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |
@@ -182,7 +182,7 @@ Grounded in `office/RECIPE.md` "Done when":
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** in the strip opens a tab with the first installed agent.
+6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** in the strip opens a tab running `omp` (the rail's `agent` prop).
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats
