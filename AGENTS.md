@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each Herdr space (project) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab. Each worker gets an old-fashioned German name and shows its current task under the desk, and a wall screen shows OMP sessions and turns.
+`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each project (a named Herdr space, else the folder the agent's terminal works in) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab. Each worker gets an old-fashioned German name and shows its current task under the desk, and a wall screen shows OMP sessions and turns.
 
 - **Not an npm project.** No `package.json`, lockfile, bundler, transpiler, TypeScript source, tests, or CI. The runtime implementation is two ES modules (~740 lines) plus a layout JSON and a vendored font.
 - **Runtime:** the Herdr desktop app and its embedded **gpui-shell** JavaScript mod runtime (generated typings observed for gpui-shell 0.7.1). Node/Bun are not used.
@@ -31,7 +31,7 @@ flowchart TD
   L --> P[office-desks: tab active]
   P --> H[pane header: role pane]
   F --> I[init: seed/state + cx.new(Room) + 250ms timer]
-  I --> A[agents or DEMO] --> G[group contiguous agents by space]
+  I --> A[agents or DEMO] --> G[group agents by project]
   G --> FIT[fit rows/cols, derive k and s] --> GEO[seats, aisles, lanes]
   GEO --> T[tick: walk trips, thoughts, cat, door, minute]
   T --> N[cx.notify only when changed]
@@ -40,12 +40,12 @@ flowchart TD
 
 **Floor pipeline (`main.js:393-528`):**
 
-1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder(addresses)` every render.
-2. Group **contiguous** agents by `space`; each group gets a rug color from `hash(space) % RUGS.length`, bumped once if it equals the previous group.
+1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder` with the project-grouped desk order every render.
+2. Group agents by **project**: a space whose `.named` is true, else the terminal's `.cwd` from `terminals()` (keyed with its machine; Windows paths fold case), falling back to the space when it has no cwd. Each group gets a rug color from `hash(key) % RUGS.length`, bumped once if it equals the previous group.
 3. `fit()` tries 2–6 rows and computes `k` (layout px per design unit), then snaps `s` (screen px per art pixel) to half-pixel steps: `s = max(1, floor(6k)/2)`, `k = s/3`.
 4. Compute desk slots (170×190 at scale `k`, 60k gaps), seats, wall/aisle y-coordinates, and side/inter-group lanes into `this.geo`.
 5. Detect new agent addresses and enqueue walk-in trips from the door; prune trips for departed agents.
-6. Render retained room view → OMP stats screen → rugs → desks → labels → space tags → cat → workers → night/dusk overlays → sticky note → sign.
+6. Render retained room view → OMP stats screen → rugs → desks → labels → project tags → cat → workers → night/dusk overlays → sticky note → sign.
 
 The **OMP stats screen** is not part of the retained room: `statsBoard()` builds it every render from the OMP `agents()` on the floor and from `terminals()` (turns, matched by address), plus the busy-worker history in `this.hist`. It hangs in the wall gap between the right bookshelf and the window, falls back to the wall left of the shelves, and is omitted when neither has room.
 
@@ -128,18 +128,18 @@ herdr-app shot      # visual spot-check
 - Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button asks for a project folder with `pickFolder({ prompt: "Starten" })` when the active space is local; canceling starts nothing. A space on another machine skips the local picker (and passes no `folder`), so its tab starts in that space's own folder. It then starts the rail's `agent` prop (`"omp"` in the layout) via `run("tab.new", { space, folder, argv: agent.run })`, or `argv: [agent]` when Herdr's table does not know that program; with no prop it falls back to the first installed agent.
 - Hover: track only a real change before `cx.notify()`. A redraw re-reports hover, so an unconditional notify loops.
 - Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `stats-live`, `cat`). Without one, the animation restarts on every render.
-- `setAgentOrder(addresses)` publishes desk order for `agent.next`/`agent.prev`; keep it on the floor and skip it only in demo mode.
+- `setAgentOrder(addresses)` publishes the drawn desk order for `agent.next`/`agent.prev`; pass the project-grouped order, keep it on the floor, and skip it only in demo mode.
 
 ### Host data contracts
 
-`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.name`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.status`, `.program`; `terminals()` items (live, from herdr-core) expose `.address`, `.state`, `.turn`, `.status`, `.agent`, and `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously). It only lists programs with a `run` in Herdr's table (plus `programs.json`): `omp` is not one of them, so the rail's `agent: "omp"` starts as the bare command `["omp"]`. `pickFolder({ prompt })` is async, opens the system folder picker, and resolves with the chosen path or null when canceled.
+`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.id`, `.name`, `.named`, `.folder`, `.machine`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.tab`, `.cwd`, `.status`, `.program`; `terminals()` items (live, from herdr-core) expose `.address`, `.cwd`, `.state`, `.turn`, `.status`, `.agent`, and `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously). It only lists programs with a `run` in Herdr's table (plus `programs.json`): `omp` is not one of them, so the rail's `agent: "omp"` starts as the bare command `["omp"]`. `pickFolder({ prompt })` is async, opens the system folder picker, and resolves with the chosen path or null when canceled.
 
 ### Invariants and gotchas
 
 1. **Keep the floor block prop-less.** Any truthy `role` skips `Room` and the timer in `init`.
 2. **Never notify on unchanged state.** Guard hover and return a `changed` flag from `tick()`.
 3. **Only the room is retained.** Desks, rugs, labels, workers, cat, and the OMP stats screen are rebuilt by `Office.render()`; editing `room()` will not move them.
-4. **Groups assume `agents()` is contiguous by space.** A repeated non-adjacent space creates duplicate groups/rugs. Unnamed spaces get desks but no rug/tag.
+4. **Groups are keyed by project, not by `agents()` order.** A named space is its own project; otherwise the terminal's working folder is the key (with its machine, case-folded on Windows), so non-adjacent agents of one folder share a rug. Agents without a cwd fall back to their space; an unnamed space whose cwd is its own `.folder` is labelled with the space name (e.g. `~`).
 5. **Arrivals animate only after the first render.** `known` starts `null`, so agents present at mount appear seated; only later addresses walk in through the door.
 6. **`seats` is never pruned.** `known` and `trips` are.
 7. **`deskLook()` is keyed by slot index + session seed, not address.** Desk order changes alter desk clutter; worker looks stay address-stable.
@@ -181,11 +181,11 @@ herdr-app shot      # visual spot-check
 Grounded in `office/RECIPE.md` "Done when":
 
 1. Install, switch to `office`, and confirm `herdr-app status` reports no errors; capture `herdr-app shot`.
-2. One worker per running agent; one row of four desks by default; desk order follows `agents()`; each named space has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
+2. One worker per running agent; one row of four desks by default; desk order is the project-grouped order; each project has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** asks for a folder, then opens a tab running `omp` there (the rail's `agent` prop); canceling the picker opens nothing.
+6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, project, space, title, and status; clicking **Neuen einstellen** asks for a folder, then opens a tab running `omp` there (the rail's `agent` prop); canceling the picker opens nothing.
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats

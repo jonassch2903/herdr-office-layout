@@ -47,10 +47,10 @@ A space on another machine skips the local picker and starts in that space's own
   at night while desk lamps come on.
 - A wall-mounted **OMP stats** screen shows live OMP sessions and their completed turns, counts
   for working / needs you / done / idle, and a four-minute activity strip.
-- Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab, space,
-  title and status.
-- Each Herdr space (project) gets its own group of desks on a coloured rug, with its name on a
-  tag.
+- Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab,
+  project, space, title and status.
+- Each project gets its own group of desks on a coloured rug, with its name on a tag: a space
+  someone named, or else the folder the agent's terminal works in.
 - One row of four desks shows by default; more desks (and rows when they fit better) appear as
   agents join, and everything shrinks to fit. Workers scale with them and stay crisp.
 - Click **Neuen einstellen** in the strip below the office, pick the project folder, and `omp`

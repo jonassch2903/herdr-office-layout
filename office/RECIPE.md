@@ -30,11 +30,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
      `N on the clock` (12px).
    - **Desks**: slots of 170×190 at scale k, one row of four by default (more rows only
-     when they fit better), one group of columns per
-     space (project), groups 60k apart, centred, starting `40k` below the wall. Each group sits
-     on a solid rug (a colour per space, never the same as its neighbour, with an inner border)
-     with the space name on a tag at its top-left corner. A single space gets at least four
-     columns. A slot holds a monitor (66×44 `#2b2f3a`, 54×34 screen), a desk
+     when they fit better), one group of columns per project (a space someone named, else the
+     folder the agent's terminal works in), groups 60k apart, centred, starting `40k` below the
+     wall. Each group sits on a solid rug (a colour per project, never the same as its
+     neighbour, with an inner border) with the project name on a tag at its top-left corner. A
+     single project (and an empty office) gets at least four columns. A slot holds a monitor
+     (66×44 `#2b2f3a`, 54×34 screen), a desk
      (`#f0dcb0` top, `#d4b27c` front, legs), keyboard, mug, desk lamp, a PC tower (light or dark)
      and one random piece of clutter (papers, plant, cactus, photo, rubber duck, or nothing). The
      worker's program icon and old German given name (12px) sit 130 down, with the current task
@@ -83,6 +84,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   the agent is working on: `a.title`, the terminal title OMP already reports, minus its `π >` or
   spinner/icon prefix (or the tab name when the title is only a shell path or program name),
   wrapped to the slot width so the whole title stays readable.
+- **Projects**: desks are grouped by project: a space someone named, else the folder the agent's
+  terminal works in, whose last path part names the rug. Agents in the same folder share a rug;
+  an agent with no folder falls back to its space. Windows paths compare case-insensitively.
 - **OMP stats**: the wall screen counts the OMP agents on the floor (`app` is `omp`), sums their
   completed turns from `terminals()` by address, shows working / needs you / done / idle counts,
   and plots how many OMP workers were busy over the last four minutes, sampled every ~10s. It
@@ -97,11 +101,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   the local picker and starts its tab in that space's own folder. A program Herdr's table does
   not list (omp) starts as its bare command, and without the prop the first installed agent
   from `knownAgents()` is used.
-  Hovering a desk shows a yellow sticky note: name, tab, space, title, status. Desk order
-  follows `agents()` and is passed to `setAgentOrder`.
-- **Fit**: tries 1–6 rows, each space getting `ceil(n / rows)` columns (at least 4 when there is one
-  space), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win
-  only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
+  Hovering a desk shows a yellow sticky note: name, tab, project, space, title, status. Desk
+  order is the project-grouped order and is passed to `setAgentOrder`.
+- **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns (at least 4 when there is
+  one project), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows
+  win only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
 
 ## Built from
 
@@ -118,8 +122,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   door changes. A 250ms timer advances walks (one
   straight leg at a time) and, every fourth tick, rolls for new walks, thoughts and the cat. It
   calls `cx.notify()` only when something changed. Every movement is a native
-  `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. The
-  wall OMP screen is rebuilt by `render()` from `agents()` and `terminals()`; `tick()` samples its
+  `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
+  groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`; the wall
+  OMP screen is rebuilt by `render()` from `agents()` and `terminals()`; `tick()` samples its
   activity strip into `hist` every ~10s.
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, and disables the hire button. The
@@ -136,6 +141,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - Hot reload doesn't always fire through a symlinked mod folder: `layout.switch` away and back.
 - Loops and transitions need a stable `.id()`, or they restart every render.
 - Walkers pass over the name labels in the aisles.
+- A project is a named space, else the terminal's working folder: an agent started in `~` (for
+  example bare `omp`) shares the home rug with every other home-folder agent. Start it in its
+  project folder (or use **Neuen einstellen**) for a rug of its own.
 - Desk titles wrap instead of truncating, so a title longer than the 60-unit aisle reaches into the
   next row (and walkers draw over it); it stays complete either way.
 - The wall stats screen needs the gap between the right bookshelf and the window, or the wall left
@@ -150,7 +158,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 ## Done when
 
 - `layout.switch {"name":"office"}` shows the office with one worker per running agent (one row of
-  four desks by default), and `herdr-app status` reports no errors.
+  four desks by default), each project on its own rug with its name on the tag, and
+  `herdr-app status` reports no errors.
 - Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
   canceling opens nothing; an empty office shows four spare desks.
 - The wall screen shows the OMP sessions and their turns, working / needs you / done / idle counts,

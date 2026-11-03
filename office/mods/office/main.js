@@ -3,8 +3,9 @@ import { h_flex, v_flex } from "gpui-base";
 import { agents, spaces, panes, props, run, setAgentOrder, knownAgents, terminals, pickFolder } from "herdr";
 import { ink, WALL, SLOT_W, SLOT_H, SCREEN, CATS, RUGS, r, icon, txt, hash, rng, pick, look, deskLook, clutter, seated, standing, cat, room } from "./art.js";
 
-// A pixel-art office: every agent is a little worker at a desk, and each space gets its own
-// group of desks on a rug. Idle workers wander, and everyone (the cat too) keeps to the walkways:
+// A pixel-art office: every agent is a little worker at a desk, and each project (a space
+// someone named, else the folder the agent's terminal works in) gets its own group of desks on
+// a rug. Idle workers wander, and everyone (the cat too) keeps to the walkways:
 // the corridor along the wall, the aisle behind each row of desks, and the lanes past both ends
 // of the rows and between the groups.
 const wood = "#8a5530";
@@ -56,8 +57,18 @@ const taskOf = (a) => {
   const telling = t && t !== prog && !/^[~/]|^[A-Za-z]:\\/.test(t) && !t.includes("@") && t.toLowerCase() !== a.program?.key;
   return telling ? t : "";
 };
+// A project is a space someone named, else the folder the agent's terminal works in: its last
+// path part names the rug. Windows paths compare case-insensitively.
+const dirOf = (p) => (p ?? "").replace(/[\\/]+$/, "");
+const dirName = (p) => dirOf(p).split(/[\\/]/).pop() ?? "";
+const winDir = (p) => /^[A-Za-z]:[\\/]|^\\\\/.test(p ?? "");
+const sameDir = (a, b) => {
+  const x = dirOf(a), y = dirOf(b);
+  return (winDir(x) || winDir(y) ? x.toLowerCase() === y.toLowerCase() : x === y);
+};
+const dirKey = (p) => (winDir(p) ? dirOf(p).toLowerCase() : dirOf(p));
 
-const GAP = 60; // the walkway between two spaces' desks, in slot units
+const GAP = 60; // the walkway between two projects' desks, in slot units
 const DVD = ["#e05a8a", "#5ab0e0", "#e0c040", "#7ee0a0", "#c08ae0", "#f08a4a"];
 
 // One row of four desks by default: up to four desks never wrap. More rows only help when there
@@ -433,13 +444,13 @@ export default class Office extends View {
     }
     // props.demo fills the desks with sample workers in every state (for previews).
     const list = p.demo ? DEMO : agents();
-    if (!p.demo) setAgentOrder(list.map((a) => a.address));
     this.list = list;
     const usedNames = new Set();
     for (const a of list) this.nameFor(a, usedNames);
     const crew = p.demo ? list : list.filter(isOmp);
+    const terms = p.demo ? [] : terminals();
     const addresses = new Set(crew.map((a) => a.address));
-    const turns = p.demo ? 128 : terminals()
+    const turns = p.demo ? 128 : terms
       .filter((t) => addresses.has(t.address))
       .reduce((n, t) => n + (Number(t.turn) || 0), 0);
     if (p.demo && !this.histSeeded) {
@@ -451,24 +462,41 @@ export default class Office extends View {
     const { width: w, height: h } = this.size, now = new Date(), hour = now.getHours();
     const night = hour >= 19 || hour < 6;
     const stats = this.statsBoard(w, crew, turns);
-    // Agents come in space order: one group of desks per space.
-    const groups = [];
+    // One group of desks per project: a space someone named, else the folder the agent's
+    // terminal works in. Agents of one project share a rug even when their spaces differ.
+    const cwdOf = new Map(terms.map((t) => [t.address, t.cwd]));
+    const spaceOf = new Map(p.demo ? [] : spaces().map((s) => [s.id, s]));
+    const projectOf = (a) => {
+      if (p.demo) return { key: `space:${a.space}`, name: a.space_name };
+      const space = spaceOf.get(a.space), cwd = cwdOf.get(a.address), dir = dirName(cwd);
+      if (space?.named) return { key: `space:${a.space}`, name: space.name || a.space_name };
+      if (!cwd) return { key: `space:${a.space}`, name: a.space_name || "" };
+      return {
+        key: `dir:${space?.machine ?? ""}:${dirKey(cwd)}`,
+        name: sameDir(cwd, space?.folder) ? (a.space_name || dir) : (dir || a.space_name || ""),
+      };
+    };
+    const groups = [], byKey = new Map();
     for (const a of list) {
-      const g = groups.at(-1);
-      if (g && g.space === a.space) g.agents.push(a);
-      else groups.push({ space: a.space, name: a.space_name, agents: [a] });
+      const { key, name } = projectOf(a);
+      let g = byKey.get(key);
+      if (!g) { g = { key, space: a.space, name, agents: [] }; byKey.set(key, g); groups.push(g); }
+      g.agents.push(a);
     }
-    if (!groups.length) groups.push({ space: null, name: "", agents: [] });
-    // A rug colour per space, fixed by its id, never the same as the group beside it.
+    if (!groups.length) groups.push({ key: "", space: null, name: "", agents: [] });
+    // agent.next / agent.prev follow the desks as drawn, not the host's space order.
+    if (!p.demo) setAgentOrder(groups.flatMap((g) => g.agents.map((a) => a.address)));
+    const projectName = new Map(groups.flatMap((g) => g.agents.map((a) => [a.address, g.name])));
+    // A rug colour per project, fixed by its key, never the same as the group beside it.
     groups.forEach((g, gi) => {
-      g.rug = hash(g.space ?? g.name) % RUGS.length;
+      g.rug = hash(p.demo ? (g.space ?? g.name) : g.key) % RUGS.length;
       if (gi && g.rug === groups[gi - 1].rug) g.rug = (g.rug + 1) % RUGS.length;
     });
     const { k, s, cols, rows } = fit(groups.map((g) => g.agents.length), w, h);
     const sw = Math.round(SLOT_W * k), sh = Math.round(SLOT_H * k), gap = Math.round(GAP * k), q = (v) => Math.round(v * k);
     const width = cols.reduce((a, b) => a + b, 0) * sw + (groups.length - 1) * gap;
     const top = WALL + q(40), lanes = [];
-    const desks = []; // { a, x, y, row, space }
+    const desks = []; // { a, x, y, row }
     let x0 = Math.round((w - width) / 2);
     groups.forEach((g, gi) => {
       Object.assign(g, { x: x0, w: cols[gi] * sw });
@@ -525,10 +553,11 @@ export default class Office extends View {
       .when(!!hovered, (e) => {
         const x = Math.min(hd.x + sw - 10, w - 200);
         const who = [this.names[hovered.address], hovered.tab_name].filter(Boolean).join(" · ");
+        const where = [projectName.get(hovered.address), hovered.space_name].filter((v, i, all) => v && all.indexOf(v) === i).join(" Â· ");
         const task = taskOf(hovered);
         return e.child(v_flex().absolute().left(x).top(hd.y).w(180).p(8).gap(4).bg("#fff27a").border(2).border_color("#d8c440")
           .child(txt(who, 12, ink).truncate())
-          .child(txt(hovered.space_name ?? "", 12, "#6b5a4a").truncate())
+          .child(txt(where, 12, "#6b5a4a").truncate())
           .when(!!task, (e) => e.child(txt(task, 12, "#6b5a4a").whitespace_normal()))
           .child(txt(hovered.status.toUpperCase(), 12, hovered.status === "blocked" ? "#a8322a" : ink)));
       })
