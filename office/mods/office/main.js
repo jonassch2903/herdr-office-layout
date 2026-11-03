@@ -75,15 +75,15 @@ const dirKey = (p) => (winDir(p) ? dirOf(p).toLowerCase() : dirOf(p));
 const GAP = 60; // the walkway between two projects' desks, in slot units
 const DVD = ["#e05a8a", "#5ab0e0", "#e0c040", "#7ee0a0", "#c08ae0", "#f08a4a"];
 
-// One row of four desks by default: up to four desks never wrap. More rows only help when there
-// are more agents and the desks get too small. The scale snaps to whole half pixels per art
-// pixel (s), so desks and workers grow together and stay crisp.
+// Only the desks in use are laid out: one row up to four desks, and more rows only when they let
+// the desks grow. The scale snaps to whole half pixels per art pixel (s), so desks and workers
+// grow together and stay crisp.
 function fit(groups, w, h) {
   const total = groups.reduce((a, n) => a + n, 0);
   let best;
   for (let rows = 1; rows <= 6; rows++) {
     if (total <= 4 && rows > 1) break;
-    const cols = groups.map((n) => Math.max(groups.length > 1 ? 1 : 4, Math.ceil(n / rows)));
+    const cols = groups.map((n) => Math.max(1, Math.ceil(n / rows)));
     const units = cols.reduce((a, b) => a + b, 0) * SLOT_W + (groups.length - 1) * GAP;
     const k = Math.min(1, (w - 200) / units, (h - WALL) / (rows * SLOT_H + 40));
     if (!best || k > best.k + 0.08) best = { k, cols, rows };
@@ -257,10 +257,10 @@ export default class Office extends View {
 
   desk(a, i, x, y, k, night) {
     const q = (v) => Math.round(v * k), R2 = (x, y, w, h, c) => r(q(x), q(y), q(w), q(h), c);
-    const dl = deskLook(i, this.seed), status = a?.status;
-    const lit = a && (a.focused || night);
+    const dl = deskLook(i, this.seed), status = a.status;
+    const lit = a.focused || night;
     const el = div().absolute().left(x).top(y).w(q(SLOT_W)).h(q(130))
-      .child(R2(52, 0, 66, 44, "#2b2f3a").child(a ? this.screen(a, k) : R2(6, 5, 54, 34, "#1c2028")))
+      .child(R2(52, 0, 66, 44, "#2b2f3a").child(this.screen(a, k)))
       .child(R2(80, 44, 10, 6, "#2b2f3a")).child(R2(70, 50, 30, 3, "#2b2f3a"))
       .child(R2(24, 52, 122, 12, "#f0dcb0")).child(R2(24, 64, 122, 20, "#d4b27c")).child(R2(24, 64, 122, 3, "#b48a52"))
       .child(R2(28, 84, 8, 18, "#b48a52")).child(R2(134, 84, 8, 18, "#b48a52"))
@@ -271,7 +271,6 @@ export default class Office extends View {
       .children(clutter(dl.clutter, R2))
       .child(R2(150, 58, 16, 40, dl.tower ? "#d9dce3" : "#3a3f4a").child(R2(3, 6, 8, 2, "#555")).child(R2(5, 26, 4, 4, status === "working" ? "#5ee08a" : "#777")));
     if (status === "working") el.child(txt("~", Math.max(8, q(12)), "#ffffff99").absolute().left(q(110)).top(q(30)).id(`steam-${i}`).frames(["", "~", "≈", "~"], 450));
-    if (!a) return el.child(R2(70, 78, 30, 26, "#3d4454")).child(R2(83, 104, 4, 8, "#2b2f3a")).child(R2(72, 112, 26, 4, "#2b2f3a"));
     return el.id(`desk-${a.address}`).cursor_pointer()
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(() => !this.demo && run("agent.focus", { terminal: a.address }))
@@ -512,8 +511,8 @@ export default class Office extends View {
     const desks = []; // { a, x, y, row }
     let x0 = Math.round((w - width) / 2);
     groups.forEach((g, gi) => {
-      Object.assign(g, { x: x0, w: cols[gi] * sw });
-      for (let j = 0; j < cols[gi] * rows; j++)
+      Object.assign(g, { x: x0, w: cols[gi] * sw, rows: Math.ceil(g.agents.length / cols[gi]) });
+      for (let j = 0; j < g.agents.length; j++)
         desks.push({ a: g.agents[j], x: x0 + (j % cols[gi]) * sw, y: top + Math.floor(j / cols[gi]) * sh, row: Math.floor(j / cols[gi]) });
       x0 += g.w + gap;
       if (gi < groups.length - 1) lanes.push(x0 - gap + Math.round((gap - 16 * s) / 2));
@@ -521,11 +520,10 @@ export default class Office extends View {
     const left = groups[0].x, right = left + width;
     const leftX = Math.max(4, left - 16 * s - 6), rightX = Math.min(w - 16 * s - 4, right + 6);
     this.geo = { k, s, sh, top, rows, topY: WALL - 40, leftX, rightX, lanes: [leftX, ...lanes, rightX] };
-    const taken = desks.filter((d) => d.a);
 
     // Newcomers walk in through the door.
     const ts = Date.now();
-    for (const d of taken) {
+    for (const d of desks) {
       const a = d.a;
       this.seats[a.address] = { x: d.x + q(61), y: d.y + q(50), row: d.row };
       if (this.known && !this.known.has(a.address)) {
@@ -540,18 +538,18 @@ export default class Office extends View {
     for (const t of Object.values(this.trips)) if (t.phase === "enter" && ts >= t.until) t.phase = "back";
 
     const c = this.cat, cp = c.path?.[c.i] ?? { x: Math.round(w / 3), y: this.geo.topY, ms: 16 };
-    const hd = taken.find((d) => d.a.address === this.hover), hovered = hd?.a;
+    const hd = desks.find((d) => d.a.address === this.hover), hovered = hd?.a;
     return div().id("office-root").relative().size_full().overflow_hidden().bg("#e2a465")
       .on_size_change((size, cx) => { this.size = size; this.syncRoom(); cx.notify(); })
       .child(this.roomView)
       .when(!!stats, (e) => e.child(stats))
       .children(groups.filter((g) => g.name).map((g) => {
-        const [col, edge] = RUGS[g.rug], rw = g.w + q(16), rh = rows * sh + q(4);
+        const [col, edge] = RUGS[g.rug], rw = g.w + q(16), rh = g.rows * sh + q(4);
         return r(g.x - q(8), top - q(8), rw, rh, col).border(3).border_color(edge)
           .child(r(q(6), q(6), rw - q(12) - 6, rh - q(12) - 6, col).border(1).border_color(`${edge}aa`));
       }))
       .children(desks.map((d, i) => this.desk(d.a, i, d.x, d.y, k, night)))
-      .children(taken.map((d) => this.label(d.a, d.x, d.y, k)))
+      .children(desks.map((d) => this.label(d.a, d.x, d.y, k)))
       .children(groups.filter((g) => g.name).map((g) => {
         const edge = RUGS[g.rug][1], ts = Math.max(8, q(16));
         return div().absolute().left(g.x - q(8)).top(top - q(8) - ts - 8).px(8).py(4).bg(edge)

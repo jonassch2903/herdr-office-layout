@@ -32,18 +32,18 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      A potted plant in the bottom-right corner.
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
      `N on the clock` (12px).
-   - **Desks**: slots of 170×190 at scale k, one row of four by default (more rows only
-     when they fit better), one group of columns per project (a space someone named, else the
-     folder the agent's terminal works in), groups 60k apart, centred, starting `40k` below the
-     wall. Each group sits on a solid rug (a colour per project, never the same as its
-     neighbour, with an inner border) with the project name on a tag at its top-left corner. A
-     single project (and an empty office) gets at least four columns. A slot holds a monitor
+   - **Desks**: slots of 170×190 at scale k, one per agent: one row up to four agents (more
+     rows only when they fit better), one group of columns per project (a space someone named,
+     else the folder the agent's terminal works in), groups 60k apart, centred, starting `40k`
+     below the wall. Each group sits on a solid rug (a colour per project, never the same as its
+     neighbour, with an inner border) sized to its own desks, with the project name on a tag at
+     its top-left corner. An empty office shows no desks. A slot holds a monitor
      (66×44 `#2b2f3a`, 54×34 screen), a desk
      (`#f0dcb0` top, `#d4b27c` front, legs), keyboard, mug, desk lamp, a PC tower (light or dark)
      and one random piece of clutter (papers, plant, cactus, photo, rubber duck, or nothing). The
      worker's program icon and old German given name (12px) sit 130 down, with the current task
      (the agent's terminal title, 10px, wrapped across the slot width) on the lines below. The rest
-     of the slot, 130 to 190, is the aisle. Spare slots show an empty chair.
+     of the slot, 130 to 190, is the aisle.
    - **Workers**: pixel sprites at `s` screen px per art pixel, `s` in half-pixel steps and
      `k = s / 3`, so desks and workers always scale together. Seated (16×20, from
      behind, in a `#3d4454` office chair) or standing (12×17, front or back view, legs swinging).
@@ -110,9 +110,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   from `knownAgents()` is used.
   Hovering a desk shows a yellow sticky note: name, tab, project, space, title, status. Desk
   order is the project-grouped order and is passed to `setAgentOrder`.
-- **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns (at least 4 when there is
-  one project), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows
-  win only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
+- **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns for its `n` agents, with
+  `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win only when they
+  make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
 
 ## Built from
 
@@ -171,11 +171,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 
 ## Done when
 
-- `layout.switch {"name":"office"}` shows the office with one worker per running agent (one row of
-  four desks by default), each project on its own rug with its name on the tag, and
-  `herdr-app status` reports no errors.
+- `layout.switch {"name":"office"}` shows the office with one worker and one desk per running
+  agent, each project on its own rug with its name on the tag, and `herdr-app status` reports no
+  errors.
 - Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
-  canceling opens nothing; an empty office shows four spare desks.
+  canceling opens nothing; an empty office shows no desks.
 - The wall screen shows the OMP sessions and their turns, working / needs you / done / idle counts,
   and its activity strip fills over four minutes; starting or finishing an agent updates it.
 - Starting an agent opens the door, and a worker walks in to a new desk and starts typing.

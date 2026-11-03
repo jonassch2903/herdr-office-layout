@@ -42,8 +42,8 @@ flowchart TD
 
 1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder` with the project-grouped desk order every render. `this.mumAddress` is set to `list[0]` before naming, so the first desk is always Michels Mum.
 2. Group agents by **project**: a space whose `.named` is true, else the terminal's `.cwd` from `terminals()` (keyed with its machine; Windows paths fold case), falling back to the space when it has no cwd. Each group gets a rug color from `hash(key) % RUGS.length`, bumped once if it equals the previous group.
-3. `fit()` tries 2–6 rows and computes `k` (layout px per design unit), then snaps `s` (screen px per art pixel) to half-pixel steps: `s = max(1, floor(6k)/2)`, `k = s/3`.
-4. Compute desk slots (170×190 at scale `k`, 60k gaps), seats, wall/aisle y-coordinates, and side/inter-group lanes into `this.geo`.
+3. `fit()` lays out one desk per agent in 1–6 rows and computes `k` (layout px per design unit), then snaps `s` (screen px per art pixel) to half-pixel steps: `s = max(1, floor(6k)/2)`, `k = s/3`.
+4. Compute one desk slot per agent (170×190 at scale `k`, 60k gaps), seats, wall/aisle y-coordinates, and side/inter-group lanes into `this.geo`.
 5. Detect new agent addresses and enqueue walk-in trips from the door; prune trips for departed agents.
 6. Render retained room view → OMP stats screen → rugs → desks → labels → project tags → cat → workers → night/dusk overlays → sticky note → sign.
 
@@ -154,7 +154,7 @@ herdr-app shot      # visual spot-check
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 81–93, `Room` 97–104, `init` 107–128, `path()` 147–166, `tick()` 189–235, `desk()` 258–285, `nameFor()` 287–297, `label()` 299–308, `screen()` 310–334, `statsBoard()` 336–382, `worker()` 384–414, `render()` 416–580 |
+| `office/mods/office/main.js` | `Office` view: `fit()` 81–93, `Room` 97–105, `init` 107–128, `path()` 147–166, `tick()` 189–235, `desk()` 258–282, `nameFor()` 286–296, `label()` 298–308, `screen()` 309–334, `statsBoard()` 335–382, `worker()` 383–414, `render()` 415–580 |
 | `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 45–57, seated/standing/cat 80–103, `smokingArea()` 150–160, room 162–203, rugs/screens 205–210, desk clutter 212–231 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |
@@ -182,7 +182,7 @@ herdr-app shot      # visual spot-check
 Grounded in `office/RECIPE.md` "Done when":
 
 1. Install, switch to `office`, and confirm `herdr-app status` reports no errors; capture `herdr-app shot`.
-2. One worker per running agent; one row of four desks by default; desk order is the project-grouped order; the first desk is Michels Mum with long hair or a bun and a skirt; each project has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
+2. One worker and one desk per running agent (no spare desks); desk order is the project-grouped order; the first desk is Michels Mum with long hair or a bun and a skirt; each project has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately. Michels Mum walks to the `RAUCHEN` corner, stands with a cigarette and a `~` smoke wisp, and never visits the water cooler.
