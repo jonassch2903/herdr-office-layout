@@ -26,6 +26,12 @@ const DEMO = [
   const space_name = i < 5 ? "web" : i < 9 ? "api" : "infra";
   return { address: `demo${i}`, status, tab_name, space: space_name, space_name, title, program: null, focused: i === 0 };
 });
+// Demo mode has no host tabs: three samples exercise the strip's active and status states.
+const DEMO_TABS = [
+  { id: "demo-web", name: "web", status: "working", active: true },
+  { id: "demo-api", name: "api", status: "blocked", active: false },
+  { id: "demo-infra", name: "infra", status: "idle", active: false },
+];
 // Old-fashioned German given names; every worker gets one nobody else on the floor has.
 const NAMES = [
   "Adelheid", "Albert", "Alfred", "Alois", "Anneliese", "Anton", "Balthasar", "Bärbel", "Bertha", "Brigitte",
@@ -523,34 +529,63 @@ export default class Office extends View {
         .child(txt(st === "blocked" ? "NEEDS YOU" : (st ?? "").toUpperCase(), 12, st === "blocked" ? "#a8322a" : ink));
     }
     if (p.role === "rail") {
-      const s = spaces().find((s) => s.active), tab = s?.tabs.find((t) => t.active), demo = !!p.demo;
-      return h_flex().size_full().bg(wood).px(16).items_center()
-        .child(txt(`${s?.name ?? ""} / ${tab?.name ?? ""}`, 12, "#fff1d6"))
-        .child(div().flex_1())
-        .child(div().px(8).py(2).bg("#fbfbf6").border(2).border_color("#6b3f1f").cursor_pointer()
-          .hover((e) => e.bg("#fff1d6"))
+      const s = spaces().find((s) => s.active), demo = !!p.demo;
+      const tabs = demo ? DEMO_TABS : (s?.tabs ?? []);
+      // The rail is the tab strip: one chip per tab of the active space, in host order. The
+      // program icon comes from the tab's panes and the dot is the tab's own status, so an agent
+      // tab is recognisable at a glance. Only the active chip carries the close x, like Herdr's.
+      const TAB_DOT = { working: "#5aa064", blocked: "#a8322a", done: "#4f7dc9" };
+      const programOf = (t) => panes().find((x) => x.tab === t.id && x.program?.agent)?.program
+        ?? panes().find((x) => x.tab === t.id)?.program;
+      const tabChip = (t) => {
+        const on = t.active, prog = programOf(t);
+        let chip = h_flex().id(`rail-tab-${t.id}`).h(22).px(6).gap(5).flex_none().items_center()
+          .border(2).border_color(on ? "#6b3f1f" : wood)
+          .bg(on ? "#fbfbf6" : wood)
+          .hover((e) => e.bg(on ? "#fff1d6" : "#a06a3f"))
+          .when(Boolean(prog?.icon), (e) => e.child(icon(prog, 12)))
+          .child(txt(t.name, 12, on ? ink : "#fff1d6").max_w(110).truncate())
+          .when(Boolean(TAB_DOT[t.status]), (e) => e.child(div().size(6).rounded(3).bg(TAB_DOT[t.status])));
+        if (!demo) chip = chip.cursor_pointer()
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-          .on_click((_e, cx) => {
-            if (demo) return;
-            const want = p.agent; // the program to start ("omp" in the layout); unset: most-used installed
-            const remote = !!s?.machine; // pickFolder sees this machine only
-            cx.spawn(async () => {
-              const [folder, known] = await Promise.all([
-                remote ? null : pickFolder({ prompt: "Starten" }),
-                knownAgents(),
-              ]);
-              if (!remote && !folder) return;
-              const ag = want
-                ? known.find((x) => x.installed && (x.key === want || x.run[0] === want))
-                : known.find((x) => x.installed);
-              run("tab.new", {
-                ...(s ? { space: s.id } : {}),
-                ...(folder ? { folder } : {}),
-                ...(ag ? { argv: ag.run } : want ? { argv: [want] } : {}),
-              });
+          .on_click(() => run("tab.select", { id: t.id }));
+        if (on && !demo) chip = chip.child(div().size(14).flex().items_center().justify_center().cursor_pointer()
+          .hover((e) => e.bg("#e8b9a8"))
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+          .on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: t.id }); })
+          .child(txt("x", 10, ink)));
+        return chip;
+      };
+      const hire = div().px(8).py(2).bg("#fbfbf6").border(2).border_color("#6b3f1f").cursor_pointer()
+        .hover((e) => e.bg("#fff1d6"))
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_click((_e, cx) => {
+          if (demo) return;
+          const want = p.agent; // the program to start ("omp" in the layout); unset: most-used installed
+          const remote = !!s?.machine; // pickFolder sees this machine only
+          cx.spawn(async () => {
+            const [folder, known] = await Promise.all([
+              remote ? null : pickFolder({ prompt: "Starten" }),
+              knownAgents(),
+            ]);
+            if (!remote && !folder) return;
+            const ag = want
+              ? known.find((x) => x.installed && (x.key === want || x.run[0] === want))
+              : known.find((x) => x.installed);
+            run("tab.new", {
+              ...(s ? { space: s.id } : {}),
+              ...(folder ? { folder } : {}),
+              ...(ag ? { argv: ag.run } : want ? { argv: [want] } : {}),
             });
-          })
-          .child(txt("Neuen einstellen", 12, ink)));
+          });
+        })
+        .child(txt("Neuen einstellen", 12, ink));
+      return h_flex().size_full().min_w(0).bg(wood).px(12).gap(6).items_center()
+        .on_scroll_wheel((e) => { if (!demo && Math.abs(e.delta.y) >= 1) run(e.delta.y > 0 ? "tab.prev" : "tab.next"); })
+        .child(txt(demo ? "web" : (s?.name ?? ""), 12, "#fff1d6"))
+        .child(txt("/", 12, "#c98a4f"))
+        .child(h_flex().id("rail-tabs").flex_1().min_w(0).h_full().items_center().gap(4).overflow_x_scrollbar().children(tabs.map(tabChip)))
+        .child(hire);
     }
     // props.demo fills the desks with sample workers in every state (for previews).
     const list = p.demo ? DEMO : agents();

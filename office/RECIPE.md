@@ -59,8 +59,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      bun, a coloured skirt while standing and lipstick in the front view.
    - **Cat**: a 10×7 sprite in a random coat, roaming the walkways or sitting on a blocked
      worker's desk in front of the monitor; click it to pet it.
-2. **Strip**, 28px `#8a5530`: `space / tab` in `#fff1d6`, and a cream **Neuen einstellen**
-   button on the right.
+2. **Strip**, 28px `#8a5530`: the active space's name in `#fff1d6`, a `/`, then one chip per tab
+   of that space in host order (22px high, 6px padding, 5px gap): program icon (12px), tab name
+   (max 110px, truncated) and a 6px status dot (green working, red blocked, blue done). The active
+   chip is cream `#fbfbf6` with a `#6b3f1f` border and a small `x`; the rest sit on the wood with
+   cream text. Long strips scroll sideways. A cream **Neuen einstellen** button stays on the right.
 3. **Terminals**, weight 1, 12px side padding and no vertical padding, so the panes reach the bottom:
    the active tab, every pane (a lone one too) in a
    4px `#5c3418` frame (`#e2a465` when focused), 10px apart, with a 26px `#c99a62` header: program
@@ -143,6 +146,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `loop` is a from→to→from pulse, so flakes, petals, rain and leaves drift down and back.
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
+- **Tabs**: the strip shows every tab of the active space, not only the current one. Clicking a
+  chip runs `tab.select`; the active chip's `x` runs `tab.close`; the wheel over the strip runs
+  `tab.prev`/`tab.next`. Its icon is the tab's first agent pane (else its first pane), and its dot
+  is `TabInfo.status`, the most urgent agent status in the tab. The floor is independent of the
+  shown tab: every agent in every tab keeps its worker and desk.
 - Clicking a worker or their desk runs `agent.focus`; the stats board's `NEEDS YOU` row focuses
   the displayed agent and advances `blockedCursor`; clicking the cat pets it. The
   **Neuen einstellen** button in the strip first asks for a project folder with
@@ -187,11 +195,13 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `nameFor()` gives that address `Michels Mum`, `look()` renders her as a woman, and `tick()` picks
   from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
-  every state, in three spaces, who wander four times as often, and disables agent focus and the
-  hire button; the stats queue is display-only, but the cat can still be petted. It also seeds
+  every state, in three spaces, who wander four times as often, shows three inert sample tabs
+  (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire button;
+  the stats queue is display-only, but the cat can still be petted. It also seeds
   `Neuer Kollege: Dietrich`. The preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
-  `run("agent.focus")`, `run("tab.new")` and `setAgentOrder`. No network, no `exec`, no files
+  `run("agent.focus")`, `run("tab.new")`, `run("tab.select")`, `run("tab.close")`,
+  `run("tab.prev")`, `run("tab.next")` and `setAgentOrder`. No network, no `exec`, no files
   outside its folder.
 
 ## Watch out
@@ -242,6 +252,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - `layout.switch {"name":"office"}` shows the office with one worker and one desk per running
   agent, each project on its own rug with its name on the tag, and `herdr-app status` reports no
   errors.
+- The strip lists every tab of the active space as a chip in host order; the active one is cream
+  with an `x`; clicking a chip shows that tab, its `x` closes it, and the wheel cycles tabs. Demo
+  shows the three sample chips only.
 - Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
   canceling opens nothing; an empty office shows no desks.
 - The wall screen shows all sessions and turns on the floor (OMP or not), working / needs you /

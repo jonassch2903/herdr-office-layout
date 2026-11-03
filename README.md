@@ -21,8 +21,9 @@ Ask your agent to add this layout (it reads every file first), or by hand:
 `ctrl-shift-l` cycles back to your previous layout. Delete the copies to remove it.
 
 Nothing to install: the pixel font ships with the mod. It makes no network requests, runs no
-programs of its own and reads no files outside its folder. Clicking **Neuen einstellen** in the
-wood strip asks for a project folder, then opens a new tab running `omp` there, as set by the
+programs of its own and reads no files outside its folder. The wood strip under the office lists
+every tab of the current space; click a chip to switch tabs. Clicking **Neuen einstellen** in the
+same strip asks for a project folder, then opens a new tab running `omp` there, as set by the
 rail's `agent` prop in the layout (Herdr's `tab.new`). Canceling the folder picker opens nothing.
 A space on another machine skips the local picker and starts in that space's own folder.
 
@@ -61,12 +62,15 @@ A space on another machine skips the local picker and starts in that space's own
   someone named, or else the folder the agent's terminal works in.
 - Only the desks in use are drawn: one per agent, one row up to four agents, more rows when they
   fit better. Everything scales with the agent count and workers stay crisp.
+- The wood strip is also the tab bar: every tab of the active space is a chip with its program
+  icon, name and agent status. Click one to switch, close the active one with its `x`, or roll the
+  wheel over the strip to cycle tabs. The office floor keeps showing every agent in every tab.
 - Click **Neuen einstellen** in the strip below the office, pick the project folder, and `omp`
   starts there.
 - Workers keep to their own line in the walkways and wait for each other (and the cat).
 
-Under the office a wood strip shows the current space and tab plus the **Neuen einstellen**
-button, and your terminals get the rest of the window in wood frames.
+Under the office a wood strip lists the current space and all of its tabs plus the **Neuen
+einstellen** button, and your terminals get the rest of the window in wood frames.
 
 ## Credits
 
