@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each project (a named Herdr space, else the folder the agent's terminal works in) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab. Each worker gets an old-fashioned German name and shows its current task under the desk, and a wall screen shows OMP sessions and turns.
+`herdr-office-layout` is a self-contained layout package for the **Herdr** desktop app. It renders every coding agent as a pixel-art office worker: typing when working, jumping when blocked, dozing when done, and wandering when idle. Each project (a named Herdr space, else the folder the agent's terminal works in) gets a desk group on a colored rug; clicking focuses an agent or opens a new tab. The first worker on the floor is always **Michels Mum**: she is always drawn as a woman and smokes in her own `RAUCHEN` corner instead of visiting the water cooler. Every other worker gets an old-fashioned German name and shows its current task under the desk, and a wall screen shows OMP sessions and turns.
 
-- **Not an npm project.** No `package.json`, lockfile, bundler, transpiler, TypeScript source, tests, or CI. The runtime implementation is two ES modules (~740 lines) plus a layout JSON and a vendored font.
+- **Not an npm project.** No `package.json`, lockfile, bundler, transpiler, TypeScript source, tests, or CI. The runtime implementation is two ES modules (~800 lines) plus a layout JSON and a vendored font.
 - **Runtime:** the Herdr desktop app and its embedded **gpui-shell** JavaScript mod runtime (generated typings observed for gpui-shell 0.7.1). Node/Bun are not used.
 - **Package manager:** none. Source is loaded directly as ES modules by Herdr.
 - **Self-imposed contract:** the mod makes no network requests, runs no programs, and reads no files outside its own folder. Herdr does not sandbox mods, so this must be preserved by review.
@@ -22,7 +22,7 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 | `office-rail` (fixed 28 px) | `{role: "rail", demo, agent}` | Active space / tab strip and **Neuen einstellen**; `agent` names the program to start (`"omp"` here) after a folder picker |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
-The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:100`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
+The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:125`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
 
 ```mermaid
 flowchart TD
@@ -38,9 +38,9 @@ flowchart TD
   N --> D[render: room, stats, rugs, desks, labels, cat, workers, overlays, hover note]
 ```
 
-**Floor pipeline (`main.js:393-528`):**
+**Floor pipeline (`main.js:416-580`):**
 
-1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder` with the project-grouped desk order every render.
+1. `list = props().demo ? DEMO : agents()`; the non-demo branch calls `setAgentOrder` with the project-grouped desk order every render. `this.mumAddress` is set to `list[0]` before naming, so the first desk is always Michels Mum.
 2. Group agents by **project**: a space whose `.named` is true, else the terminal's `.cwd` from `terminals()` (keyed with its machine; Windows paths fold case), falling back to the space when it has no cwd. Each group gets a rug color from `hash(key) % RUGS.length`, bumped once if it equals the previous group.
 3. `fit()` tries 2–6 rows and computes `k` (layout px per design unit), then snaps `s` (screen px per art pixel) to half-pixel steps: `s = max(1, floor(6k)/2)`, `k = s/3`.
 4. Compute desk slots (170×190 at scale `k`, 60k gaps), seats, wall/aisle y-coordinates, and side/inter-group lanes into `this.geo`.
@@ -51,9 +51,9 @@ The **OMP stats screen** is not part of the retained room: `statsBoard()` builds
 
 **Retained view:** only the room is a nested `View` (`cx.new(Room, …)`). `Room.render()` calls `room(w, h, {seed, now, doorOpen})` from `art.js`, which draws wall, floor, wall furniture, cooler, and plant — **not** desks, rugs, labels, workers, cat, or the OMP stats screen. `syncRoom()` JSON-compares `{w, h, seed, at, door}` (`at` floored to the minute) and calls `set_props` only when the key changes.
 
-**Simulation (`tick`, `main.js:173-218`):** a single `cx.timer.every(250, …)` advances at most one walkway leg per walker per tick; every fourth tick (~1 s) rolls new trips and thoughts. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). Every 40th tick (~10 s) it appends the number of busy OMP workers to `hist` for the wall screen. The timer calls `cx.notify()` only when `tick()` reports a real change.
+**Simulation (`tick`, `main.js:189-235`):** a single `cx.timer.every(250, …)` advances at most one walkway leg per walker per tick; every fourth tick (~1 s) rolls new trips and thoughts. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). Every 40th tick (~10 s) it appends the number of busy OMP workers to `hist` for the wall screen. The timer calls `cx.notify()` only when `tick()` reports a real change. Mum uses `MUM_SPOTS` instead of `SPOTS`: both `cooler` entries become `smoke`, a wall spot at the Raucherecke.
 
-**Art (`art.js`):** stateless pixel-art library. Sprites are rows of palette letters (`.` transparent); `sprite()` emits one `div` per horizontal color run. All appearance is deterministic: worker looks from `hash(agent.address)`, desk clutter from `hash("desk" + slot) ^ sessionSeed`, room art from a per-view seed. Wandering, thoughts, cat destinations, and new worker names use unseeded `Math.random()`.
+**Art (`art.js`):** stateless pixel-art library. Sprites are rows of palette letters (`.` transparent); `sprite()` emits one `div` per horizontal color run. All appearance is deterministic: worker looks from `hash(agent.address)`, desk clutter from `hash("desk" + slot) ^ sessionSeed`, room art from a per-view seed. `look(a, { woman: true })` forces long hair or a bun, a skirt and lipstick; `worker()` passes it for `this.mumAddress`. Wandering, thoughts, cat destinations, and new worker names use unseeded `Math.random()`.
 
 **Animation:** native `.transition("left"/"top")`, `.loop(...)`, and `.frames(...)` only; there is no per-frame animation code. Stable `.id()` values are mandatory for these elements.
 
@@ -108,8 +108,8 @@ herdr-app shot      # visual spot-check
 
 ### State and errors
 
-- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `n`, `cat`, `list`, `names`, `hist`.
-- `render()` is impure: it sets `demo`, `list`, `names`, `seats`, `trips`, `known`, `door`, and (first demo render) `hist`/`histSeeded`. Do not assume a pure render or safe concurrent mutation.
+- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `n`, `cat`, `list`, `mumAddress`, `names`, `hist`.
+- `render()` is impure: it sets `demo`, `list`, `mumAddress`, `names`, `seats`, `trips`, `known`, `door`, and (first demo render) `hist`/`histSeeded`. Do not assume a pure render or safe concurrent mutation.
 - No `try`/`catch` or logging. Use optional chaining and defaults: `props() ?? {}`, `SCREEN[status] ?? SCREEN.idle`, `pane?.program?.name ?? "Terminal"`.
 - No dependency injection or service container: import host APIs directly from `gpui-kit`/`gpui-base`/`herdr`, and keep drawing helpers in `./art.js`.
 - Async is limited to `cx.spawn(async () => { const [folder, known] = await Promise.all([pickFolder(…), knownAgents()]); … })` for the strip's **Neuen einstellen** button. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
@@ -119,7 +119,7 @@ herdr-app shot      # visual spot-check
 - Build UI with `div()`, `h_flex()`, `v_flex()`; absolute positioning is normal. There is no DOM, HTML, CSS, or WebView.
 - Two scale units: `s` is screen px per **art** pixel (sprites); `k = s / 3` is layout px per **design** unit (desks, slots, geometry). Use `s` for sprites and `q(v) = Math.round(v * k)` for layout values.
 - Desk slots are 170×190 design units. Walkways are `{r, x}` places: `r = -1` is the wall corridor (`WALL - 40`), `r >= 0` is the aisle behind desk row `r`; seats add `seat: y`. `path()` routes seat → row aisle → nearest side lane → target row → target seat.
-- Wall/furniture positions used by `spotPlace()` (`main.js:163-171`) are hand-matched to raw pixel coordinates in `room()` (`art.js:141-179`). The stats screen's gap (`mid+268` to `w-348` in `statsBoard()`) uses the same shelf and window coordinates. Move them together.
+- Wall/furniture positions used by `spotPlace()` (`main.js:179-185`) are hand-matched to raw pixel coordinates in `room()` (`art.js:162-203`). The stats screen's gap (`mid+268` to `w-348` in `statsBoard()`) uses the same shelf and window coordinates. The `smoke` wall spot (x ≈ 52 + jitter) and `smokingArea()` in `art.js` (sign and ashtray at x ≈ 120) must move together as well.
 - Night (`hour >= 19 || hour < 6`) and dusk (`17–19`) thresholds are duplicated in `main.js` and `art.js`; keep them in sync.
 - Walkers passing over name labels in aisles is a documented visual caveat (`RECIPE.md` "Watch out"), not a walkway bug.
 
@@ -127,7 +127,7 @@ herdr-app shot      # visual spot-check
 
 - Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button asks for a project folder with `pickFolder({ prompt: "Starten" })` when the active space is local; canceling starts nothing. A space on another machine skips the local picker (and passes no `folder`), so its tab starts in that space's own folder. It then starts the rail's `agent` prop (`"omp"` in the layout) via `run("tab.new", { space, folder, argv: agent.run })`, or `argv: [agent]` when Herdr's table does not know that program; with no prop it falls back to the first installed agent.
 - Hover: track only a real change before `cx.notify()`. A redraw re-reports hover, so an unconditional notify loops.
-- Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `stats-live`, `cat`). Without one, the animation restarts on every render.
+- Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `w-{address}-smoke`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `stats-live`, `cat`). Without one, the animation restarts on every render.
 - `setAgentOrder(addresses)` publishes the drawn desk order for `agent.next`/`agent.prev`; pass the project-grouped order, keep it on the floor, and skip it only in demo mode.
 
 ### Host data contracts
@@ -147,14 +147,15 @@ herdr-app shot      # visual spot-check
 9. **The pane header depends on host-injected `props().pane`.** The layout supplies only `role: "pane"`; preserve that convention or headers show `Terminal`/blank status.
 10. **Demo mode is non-interactive** and must not be checked in.
 11. **The wall stats screen hides when the wall is too narrow.** It needs the gap between the right shelf and the window or the wall left of the shelves; `statsBoard()` returns null below about 1290px, and nothing else reserves that space.
+12. **The first desk is always Michels Mum.** `render()` sets `mumAddress = list[0]`; `nameFor()` overrides that address, `worker()` calls `look(a, { woman: true })`, and `tick()` uses `MUM_SPOTS`, where both `cooler` entries become `smoke`. A former first agent gets a normal German name back. Keep the `smoke` spot in `spotPlace()` aligned with `smokingArea()` in `art.js`.
 
 ## Important Files
 
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 66–78, `Room` 82–89, `init` 92–112, `path()` 131–150, `tick()` 173–218, `desk()` 241–266, `nameFor()` 269–278, `label()` 280–289, `screen()` 291–310, `statsBoard()` 317–362, `worker()` 365–391, `render()` 393–528 |
-| `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 44–51, seated/standing/cat 74–100, room 141–179, rugs/screens 183–198, desk clutter 200–209 |
+| `office/mods/office/main.js` | `Office` view: `fit()` 81–93, `Room` 97–104, `init` 107–128, `path()` 147–166, `tick()` 189–235, `desk()` 258–285, `nameFor()` 287–297, `label()` 299–308, `screen()` 310–334, `statsBoard()` 336–382, `worker()` 384–414, `render()` 416–580 |
+| `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 45–57, seated/standing/cat 80–103, `smokingArea()` 150–160, room 162–203, rugs/screens 205–210, desk clutter 212–231 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |
 | `office/RECIPE.md` | Exact visual spec, behavior contract, caveats, and "Done when" checklist |
@@ -181,11 +182,11 @@ herdr-app shot      # visual spot-check
 Grounded in `office/RECIPE.md` "Done when":
 
 1. Install, switch to `office`, and confirm `herdr-app status` reports no errors; capture `herdr-app shot`.
-2. One worker per running agent; one row of four desks by default; desk order is the project-grouped order; each project has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
+2. One worker per running agent; one row of four desks by default; desk order is the project-grouped order; the first desk is Michels Mum with long hair or a bun and a skirt; each project has its rug and tag; the wall screen shows the OMP sessions, their turns, and status counts.
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
-5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, project, space, title, and status; clicking **Neuen einstellen** asks for a folder, then opens a tab running `omp` there (the rail's `agent` prop); canceling the picker opens nothing.
+5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately. Michels Mum walks to the `RAUCHEN` corner, stands with a cigarette and a `~` smoke wisp, and never visits the water cooler.
+6. Clicking a worker or occupied desk focuses that agent; every desk shows a worker name and the current task title; hovering a desk shows name, tab, project, space, title, and status; clicking **Neuen einstellen** asks for a folder, then opens a tab running `omp` there (the rail's `agent` prop); canceling the picker opens nothing.
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats

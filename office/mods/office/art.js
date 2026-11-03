@@ -41,13 +41,19 @@ export const STYLES = ["short", "long", "bun", "bald", "spiky"];
 const KIND = { claude: "#d97757", codex: "#2f3640", gemini: "#4f7dc9", opencode: "#8a62b8", pi: "#e58fb6", grok: "#5b5b66", hermes: "#d79a3a", cursor: "#3f9aa6", copilot: "#24292f" };
 
 // Everything random about a worker, fixed by their address so they look the same every render.
-export function look(a) {
+// `woman` forces the feminine sprite cues (long hair or a bun, a skirt, lipstick) for Michels Mum.
+export function look(a, { woman = false } = {}) {
   const R = rng(hash(a.address));
   const kind = `${a.app ?? ""} ${a.program?.name ?? ""}`.toLowerCase();
   const shirt = Object.entries(KIND).find(([k]) => kind.includes(k))?.[1];
+  const hair = pick(R, HAIR), skin = pick(R, SKIN);
+  const style = woman ? pick(R, ["long", "bun"]) : pick(R, STYLES);
+  const glasses = R() < 0.3;
   return {
-    hair: pick(R, HAIR), skin: pick(R, SKIN), style: pick(R, STYLES), glasses: R() < 0.3,
+    hair, skin, style, glasses,
     shirt: shirt ?? pick(R, SHIRT), bob: 280 + Math.floor(R() * 220), book: pick(R, ["#7a2f2f", "#2f5a7a", "#3f6b3a", "#8a6a2a"]),
+    skirt: woman ? pick(R, ["#6b3f7a", "#7a4a5a", "#3f5a7a", "#7a3a3a"]) : null,
+    lip: woman ? "#b83a5a" : "#a0522d",
   };
 }
 
@@ -68,7 +74,7 @@ const FRONT = {
 };
 const STAND = [".TTTTTTTTTT.", "TTTTTTTTTTTT", "STTTTTTTTTTS", "STTTTTTTTTTS", "S.TTTTTTTT.S", "..PPPPPPPP.."];
 
-const palette = (lk) => ({ H: lk.hair, S: lk.skin, E: "#1b1b1b", m: "#a0522d", G: "#222222", T: lk.shirt, C: "#3d4454", c: "#525b6e", K: "#2b2f3a", P: "#3b4252" });
+const palette = (lk) => ({ H: lk.hair, S: lk.skin, E: "#1b1b1b", m: lk.lip ?? "#a0522d", G: "#222222", T: lk.shirt, C: "#3d4454", c: "#525b6e", K: "#2b2f3a", P: lk.skirt ?? "#3b4252" });
 
 // Seated at the desk, seen from behind. 16×20 art pixels.
 export function seated(lk, s, sleeping) {
@@ -92,7 +98,8 @@ export function standing(lk, s, facing, walking, item, id) {
     .child(sprite(STAND, pal, s).absolute().left(2 * s).top(7 * s))
     .child(sprite(head, pal, s).absolute().left(2 * s).top(0))
     .when(item === "cup", (e) => e.child(r(13 * s, 9 * s, 2 * s, 3 * s, "#f4f4f0")))
-    .when(item === "book", (e) => e.child(r(12 * s, 8 * s, 3 * s, 4 * s, lk.book)));
+    .when(item === "book", (e) => e.child(r(12 * s, 8 * s, 3 * s, 4 * s, lk.book)))
+    .when(item === "cig", (e) => e.child(r(12 * s, 9 * s, 3 * s, s, "#f4f4f0")).child(r(15 * s, 9 * s, s, s, "#e0504a")));
 }
 
 const CAT = [".......O.O", ".......OOO", "O......OEO", "O..OOOOOOO", ".OOOOOOOO.", "..OOOOOOO.", "..O.O..O.O"];
@@ -138,6 +145,20 @@ function window_(x, hour) {
   return el.child(r(40, 2, 4, 64, "#f4f4f0")).child(r(2, 32, 78, 4, "#f4f4f0"));
 }
 
+// Michels Mum's corner: a RAUCHEN sign, an ashtray stand and a few butts on the floor. The walker's
+// spot for "smoke" in main.js (spotPlace) lines up with the ashtray here.
+function smokingArea() {
+  return [
+    r(16, 82, 92, 18, "#4a3a2c").border(2).border_color("#6b3f1f").flex().items_center().justify_center()
+      .child(txt("RAUCHEN", 10, "#fff1d6")),
+    r(128, 140, 4, 6, "#3a3a3a"),
+    r(120, 146, 20, 4, "#3a3a3a"),
+    r(120, 132, 20, 8, "#8a90a0").border(2).border_color("#5b5b66"),
+    r(124, 133, 4, 2, "#f4f4f0"), r(132, 134, 3, 2, "#f4f4f0"),
+    r(136, 154, 5, 2, "#f4f4f0"), r(128, 157, 4, 2, "#f4f4f0"), r(84, 158, 4, 2, "#e6d8c8"),
+  ];
+}
+
 export function room(w, h, { seed, now, doorOpen }) {
   const R = rng(seed);
   const planks = [];
@@ -168,6 +189,7 @@ export function room(w, h, { seed, now, doorOpen }) {
     window_(w - 340, hour),
     r(w - 200, 40, 50, 60, "#d9b25a").border(4).border_color("#6b3f1f")
       .child(r(0, 0, 42, 52, "#8fc6e8")).child(r(0, 28, 42, 24, "#5aa064")).child(r(18, 18, 6, 22, "#7a4a28")).child(r(12, 10, 18, 14, "#3f7a3a")),
+    ...smokingArea(),
     // water cooler
     r(w - 107, 56, 30, 34, "#7fb8e8").border(3).border_color("#4a86c0"),
     r(w - 112, 90, 40, 60, "#d8dce4").border(3).border_color("#8a90a0").child(r(10, 10, 12, 6, "#4a86c0")),

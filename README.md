@@ -2,8 +2,8 @@
 
 The **Office** layout for the Herdr app: a pixel-art office where every coding agent is a little
 office worker at a desk. Typing, stuck waiting on you, dozing after a finished job, or off at the
-water cooler: you can tell at a glance. See [office/RECIPE.md](office/RECIPE.md) for how it is
-built.
+water cooler: you can tell at a glance. The first worker is always Michels Mum, and she sneaks off
+to the smoking corner instead. See [office/RECIPE.md](office/RECIPE.md) for how it is built.
 
 ![Office](office/preview.png)
 
@@ -37,10 +37,13 @@ A space on another machine skips the local picker and starts in that space's own
 
 - Idle workers (and now and then finished ones) get up and wander: to the water cooler (back with
   a cup), a bookshelf (with a book), the window, the door, the plant, or another worker's desk for
-  a chat. They keep to the walkways and hurry back when their agent starts working.
+  a chat. They keep to the walkways and hurry back when their agent starts working. Michels Mum,
+  the first worker on the floor, never visits the water cooler: she goes to the `RAUCHEN` corner
+  and smokes a cigarette instead.
 - New agents walk in through the door to their desk.
 - Every worker looks different (hair, skin, hairstyle, glasses), and their shirt colour follows the
-  kind of agent. Each gets an old-fashioned German name and a line under the desk with what they
+  kind of agent. Michels Mum always looks like a woman (long hair or a bun, a skirt, lipstick).
+  Every other worker gets an old-fashioned German name and a line under the desk with what they
   are working on, taken from the terminal title OMP reports. Desks get random clutter, and an
   office cat roams the floor.
 - The clock shows the real time, the window goes from day to sunset to night, and the room dims

@@ -2,7 +2,8 @@
 
 A pixel-art office for the Herdr app. Every agent is a little office worker at a desk: you can see
 who's typing, who's stuck waiting for you, who finished and dozed off, and who wandered off to the
-water cooler. The office fills the top of the window, a wood strip runs under it, and your
+water cooler. The first worker is always Michels Mum, and she takes her breaks in the smoking
+corner instead. The office fills the top of the window, a wood strip runs under it, and your
 terminals sit below in wood frames.
 
 ![Office](preview.png)
@@ -21,10 +22,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      clock at `mid-165` (48px, hour marks, real time: long black minute hand, short red hour hand), a door at `mid-40`
      (80px, `#a8643a`, opens to a dark doorway while someone arrives), a notice at `mid+90`, a
      window at `w-340` (day `#8fd0f5` with clouds, 17–19h sunset `#f2a65a`, 19–6h night
-     `#1d2547` with moon and stars), a framed picture at `w-200`, a water cooler at `w-112`, and
-     an **OMP stats** screen in the gap between the right bookshelf and the window (or left of the
-     shelves when that gap is too narrow): dark screen in a brown frame, `OMP STATS`, a live dot,
-     sessions, completed turns, status counts and a four-minute activity strip.
+     `#1d2547` with moon and stars), a framed picture at `w-200`, a water cooler at `w-112`, a
+     **Raucherecke** at the left end of the wall (`RAUCHEN` sign, a small ashtray stand and
+     cigarette butts on the floor), and an **OMP stats** screen in the gap between the right
+     bookshelf and the window (or left of the shelves when that gap is too narrow): dark screen in
+     a brown frame, `OMP STATS`, a live dot, sessions, completed turns, status counts and a
+     four-minute activity strip.
    - **Floor** `#e2a465` with `#c98a4f` planks every 22px, seams staggered at random, a few knots.
      A potted plant in the bottom-right corner.
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
@@ -47,7 +50,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      Random per agent but stable: hair (8 colours), skin (6 tones), hairstyle (short, long, bun,
      bald, spiky), glasses (30%). The shirt colour follows the agent kind (`claude #d97757`,
      `codex #2f3640`, `gemini #4f7dc9`, `opencode #8a62b8`, `pi #e58fb6`, `grok #5b5b66`, ...),
-     otherwise random.
+     otherwise random. The first worker, Michels Mum, always looks like a woman: long hair or a
+     bun, a coloured skirt while standing and lipstick in the front view.
    - **Cat**: a 10×7 sprite in a random coat, roaming the walkways.
 2. **Strip**, 28px `#8a5530`: `space / tab` in `#fff1d6`, and a cream **Neuen einstellen**
    button on the right.
@@ -68,7 +72,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - **Wandering**: each second an idle worker gets up with chance 3.5% (done 1.5%) and goes to the
   water cooler (comes back holding a cup), a bookshelf (a book), the window, the door, the plant,
   a random spot in an aisle, or another seated worker's desk (a `...` chat bubble). They stay 3–11s
-  and walk back. Starting work or getting blocked sends them straight back.
+  and walk back. Starting work or getting blocked sends them straight back. Michels Mum's spot
+  list swaps both water-cooler entries for `smoke`: she walks to the `RAUCHEN` sign, faces the
+  wall, holds a cigarette and shows a `~` smoke wisp. Everyone else keeps the usual spots.
 - **Walkways**: the corridor along the wall (walker top at `WALL-40`), the aisle behind each row
   (`row top + 128k`), a lane past each end of the rows and one between each pair of space groups.
   Everyone keeps to their own line, up to ±8k off the middle, and waits (up to 1.5s, the cat 2s)
@@ -79,11 +85,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   to their desk.
 - **Thoughts**: now and then a seated worker shows `?`, `!`, `♪`, `♥`, `...`, `☼`, `$` or `#`
   for a few seconds.
-- **Names and tasks**: each worker draws an old-fashioned German given name, unique among the
-  agents on the floor and kept for the session. Under every occupied desk, below the name, is what
-  the agent is working on: `a.title`, the terminal title OMP already reports, minus its `π >` or
-  spinner/icon prefix (or the tab name when the title is only a shell path or program name),
-  wrapped to the slot width so the whole title stays readable.
+- **Names and tasks**: the first worker on the floor is always Michels Mum. Every other worker
+  draws an old-fashioned German given name, unique among the agents on the floor and kept for the
+  session; a former first worker gets a normal name back if it loses the first desk. Under every
+  occupied desk, below the name, is what the agent is working on: `a.title`, the terminal title
+  OMP already reports, minus its `π >` or spinner/icon prefix (or the tab name when the title is
+  only a shell path or program name), wrapped to the slot width so the whole title stays readable.
 - **Projects**: desks are grouped by project: a space someone named, else the folder the agent's
   terminal works in, whose last path part names the rug. Agents in the same folder share a rug;
   an agent with no folder falls back to its space. Windows paths compare case-insensitively.
@@ -115,8 +122,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `{role: "pane"}`).
   `preview` points at `layouts/office.svg` for the settings screen.
 - `mods/office/art.js`: sprites as rows of palette letters (`sprite(rows, palette, s)` draws one
-  `div` per run of a colour), the room, desk clutter, and per-agent looks seeded from a hash of the
-  agent's address.
+  `div` per run of a colour), the room (including `smokingArea()`), desk clutter, and per-agent
+  looks seeded from a hash of the agent's address. `look(a, { woman: true })` swaps in long hair
+  or a bun, a skirt and lipstick.
 - `mods/office/main.js`: one mod, three roles by `props().role`. The room (wall, floor,
   furniture) is a retained nested view (`cx.new`), rebuilt only when the size, the minute or the
   door changes. A 250ms timer advances walks (one
@@ -125,7 +133,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
   groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`; the wall
   OMP screen is rebuilt by `render()` from `agents()` and `terminals()`; `tick()` samples its
-  activity strip into `hist` every ~10s.
+  activity strip into `hist` every ~10s. `render()` also sets `mumAddress` to the first agent:
+  `nameFor()` gives that address `Michels Mum`, `look()` renders her as a woman, and `tick()` picks
+  from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, and disables the hire button. The
   preview was taken that way.
@@ -141,6 +151,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - Hot reload doesn't always fire through a symlinked mod folder: `layout.switch` away and back.
 - Loops and transitions need a stable `.id()`, or they restart every render.
 - Walkers pass over the name labels in the aisles.
+- The `smoke` spot in `spotPlace()` (wall x ≈ 52 plus jitter) and the Raucherecke in
+  `smokingArea()` (sign, ashtray at x ≈ 120) are hand-matched: move them together. The first agent
+  is `list[0]`, i.e. the first desk; if the host order changes, the name moves to the new first
+  agent and the old one gets a normal German name back.
 - A project is a named space, else the terminal's working folder: an agent started in `~` (for
   example bare `omp`) shares the home rug with every other home-folder agent. Start it in its
   project folder (or use **Neuen einstellen**) for a rug of its own.
@@ -169,5 +183,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   you're elsewhere, the worker dozes with `zZz`.
 - Idle workers get up within a minute or so, walk the aisles and lanes without crossing desks,
   and walk back. They return at once when their agent starts working.
+- The first desk is Michels Mum, drawn with long hair or a bun and a skirt. Only she walks to the
+  `RAUCHEN` corner, where she stands with a cigarette and a `~` smoke wisp; she never walks to the
+  water cooler.
 - Clicking a worker focuses that agent's terminal. Every desk shows the worker's name and current
   task; hovering it shows the full sticky note.

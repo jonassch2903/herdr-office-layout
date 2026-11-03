@@ -39,6 +39,10 @@ const NAMES = [
 ];
 const THOUGHTS = ["?", "!", "♪", "♥", "...", "☼", "$", "#"];
 const SPOTS = ["cooler", "cooler", "shelfL", "shelfR", "window", "door", "plant", "floor", "floor", "chat", "chat"];
+// The first worker on the floor is always Michels Mum. She never joins the water-cooler crowd:
+// her cooler trips lead to the smoking corner instead. Everyone else keeps the usual spots.
+const MUM = "Michels Mum";
+const MUM_SPOTS = SPOTS.map((k) => (k === "cooler" ? "smoke" : k));
 const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
 // The wall screen is OMP's: live sessions, completed turns and a short activity strip. `turn` is
@@ -114,6 +118,7 @@ export default class Office extends View {
     this.n = 0;
     this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false };
     this.list = [];
+    this.mumAddress = null; // the first agent on the floor, always Michels Mum
     this.names = {};     // address → old German name, fixed for the session
     this.hist = [];      // OMP busy count, one sample every ~10s
     this.histSeeded = false;
@@ -173,7 +178,7 @@ export default class Office extends View {
 
   spotPlace(sp) {
     const { width: w } = this.size, g = this.geo, mid = Math.round(w / 2);
-    const wall = { cooler: w - 150, shelfL: mid - 250, shelfR: mid + 200, window: w - 320, door: mid - 24 }[sp.key];
+    const wall = { cooler: w - 150, shelfL: mid - 250, shelfR: mid + 200, window: w - 320, door: mid - 24, smoke: 52 }[sp.key];
     if (wall != null) return { r: -1, x: Math.round(wall + sp.jx) };
     if (sp.key === "chat" && this.seats[sp.other]) { const o = this.seats[sp.other]; return { r: o.row, x: o.x + Math.round(30 * g.k) }; }
     if (sp.key === "plant") return { r: g.rows - 1, x: Math.max(g.rightX, w - 150) };
@@ -210,7 +215,8 @@ export default class Office extends View {
         else this.headBack(a, t, at, now);
       } else if (slow && !busy(a) && Math.random() < (a.status === "done" ? 0.015 : 0.035) * (this.demo ? 4 : 1)) {
         const others = this.list.filter((o) => o.address !== a.address && !this.trips[o.address]);
-        let key = SPOTS[Math.floor(Math.random() * SPOTS.length)];
+        const spots = a.address === this.mumAddress ? MUM_SPOTS : SPOTS;
+        let key = spots[Math.floor(Math.random() * spots.length)];
         if (key === "chat" && !others.length) key = "floor";
         const spot = { key, other: key === "chat" ? others[Math.floor(Math.random() * others.length)].address : null,
           jx: Math.random() * 30 - 15, fx: Math.random(), fy: Math.random() };
@@ -276,10 +282,12 @@ export default class Office extends View {
       });
   }
 
-  // Every worker gets a free old German name; newcomers pick one nobody at a desk has.
+  // The first worker on the floor is always Michels Mum. Everyone else gets a free old German
+  // name; newcomers pick one nobody at a desk has, and a former Mum gets a normal name back.
   nameFor(a, used) {
+    if (a.address === this.mumAddress) { this.names[a.address] = MUM; used.add(MUM); return MUM; }
     let name = this.names[a.address];
-    if (!name || used.has(name)) {
+    if (!name || name === MUM || used.has(name)) {
       const free = NAMES.filter((n) => !used.has(n));
       name = free[Math.floor(Math.random() * free.length)] ?? NAMES[Math.floor(Math.random() * NAMES.length)];
       this.names[a.address] = name;
@@ -374,7 +382,7 @@ export default class Office extends View {
 
   // The worker, at their seat or out walking. Each leg of a walk animates natively.
   worker(a, k, s) {
-    const lk = look(a), t = this.trips[a.address], id = `w-${a.address}`, seat = this.seats[a.address];
+    const lk = look(a, { woman: a.address === this.mumAddress }), t = this.trips[a.address], id = `w-${a.address}`, seat = this.seats[a.address];
     let pos = seat, ms = 16, body;
     if (!t) {
       body = seated(lk, s, a.status === "done").id(`${id}-sit`);
@@ -384,9 +392,11 @@ export default class Office extends View {
       const p = t.path[t.i], there = t.phase === "there", enter = t.phase === "enter";
       pos = p;
       ms = enter ? 16 : p.ms;
-      const wall = t.spot.key in { cooler: 1, shelfL: 1, shelfR: 1, window: 1, door: 1 };
+      const wall = t.spot.key in { cooler: 1, shelfL: 1, shelfR: 1, window: 1, door: 1, smoke: 1 };
       const facing = enter ? "front" : there ? (wall ? "back" : "front") : p.facing;
-      const item = there && t.spot.key === "cooler" ? "cup" : there && t.spot.key.startsWith("shelf") ? "book" : null;
+      const item = there && t.spot.key === "cooler" ? "cup"
+        : there && t.spot.key === "smoke" ? "cig"
+        : there && t.spot.key.startsWith("shelf") ? "book" : null;
       body = standing(lk, s, facing, !there && !enter, item, id);
     }
     const th = this.thoughts[a.address];
@@ -397,6 +407,8 @@ export default class Office extends View {
       .on_click(() => !this.demo && run("agent.focus", { terminal: a.address }))
       .child(body)
       .when(!t && a.status === "done", (e) => e.child(txt("z", 16, "#24406e").absolute().left(14 * s).top(-2 * s).id(`${id}-z`).frames(["z", "zZ", "zZz", ""], 500)))
+      .when(t?.phase === "there" && t.spot.key === "smoke", (e) => e.child(txt("~", 12, "#e8e8e8")
+        .absolute().left(13 * s).top(-4 * s).id(`${id}-smoke`).frames(["", "~", "≈", "~", ""], 700)))
       .when(chatting, (e) => e.child(bubble(txt(".", 12, ink).id(`${id}-chat`).frames([".", "..", "..."], 400)).left(10 * s).top(-6 * s)))
       .when(!!th && !chatting, (e) => e.child(bubble(txt(th.sym, 12, ink)).left(11 * s).top(-6 * s)));
   }
@@ -445,6 +457,7 @@ export default class Office extends View {
     // props.demo fills the desks with sample workers in every state (for previews).
     const list = p.demo ? DEMO : agents();
     this.list = list;
+    this.mumAddress = list[0]?.address ?? null;
     const usedNames = new Set();
     for (const a of list) this.nameFor(a, usedNames);
     const crew = p.demo ? list : list.filter(isOmp);
@@ -553,7 +566,7 @@ export default class Office extends View {
       .when(!!hovered, (e) => {
         const x = Math.min(hd.x + sw - 10, w - 200);
         const who = [this.names[hovered.address], hovered.tab_name].filter(Boolean).join(" · ");
-        const where = [projectName.get(hovered.address), hovered.space_name].filter((v, i, all) => v && all.indexOf(v) === i).join(" Â· ");
+        const where = [projectName.get(hovered.address), hovered.space_name].filter((v, i, all) => v && all.indexOf(v) === i).join(" · ");
         const task = taskOf(hovered);
         return e.child(v_flex().absolute().left(x).top(hd.y).w(180).p(8).gap(4).bg("#fff27a").border(2).border_color("#d8c440")
           .child(txt(who, 12, ink).truncate())
