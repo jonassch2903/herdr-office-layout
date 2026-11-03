@@ -237,7 +237,9 @@ export default class Office extends View {
             if (!t.hold) { t.hold = now + WAIT_MS; changed = true; } // stop swinging the legs on the spot
             if (now < t.hold) { t.until = now + TICK_MS; continue; }
           }
-          t.hold = 0; t.i++; t.until = now + t.path[t.i].ms; changed = true; continue;
+          t.hold = 0; t.i++; t.until = now + t.path[t.i].ms;
+          if (t.phase === "enter") t.phase = "back"; // the door pause is over; walk with real leg times
+          changed = true; continue;
         }
         const at = t.path[t.i];
         t.hold = 0;
@@ -661,7 +663,6 @@ export default class Office extends View {
     for (const key of Object.keys(this.since)) if (!this.known.has(key)) delete this.since[key];
     for (const key of Object.keys(this.lastTurn)) if (!this.known.has(key)) delete this.lastTurn[key];
     for (const key of Object.keys(this.trips)) if (!this.known.has(key)) delete this.trips[key];
-    for (const t of Object.values(this.trips)) if (t.phase === "enter" && ts >= t.until) t.phase = "back";
 
     const c = this.cat, cp = c.path?.[c.i] ?? { x: Math.round(w / 3), y: this.geo.topY, ms: 16 };
     const onDesk = c.onDesk && c.i === (c.path?.length ?? 0) - 1;
