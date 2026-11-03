@@ -24,6 +24,7 @@ Nothing to install: the pixel font ships with the mod. It makes no network reque
 programs of its own and reads no files outside its folder. Clicking **Neuen einstellen** in the
 wood strip asks for a project folder, then opens a new tab running `omp` there, as set by the
 rail's `agent` prop in the layout (Herdr's `tab.new`). Canceling the folder picker opens nothing.
+A space on another machine skips the local picker and starts in that space's own folder.
 
 ## The office
 

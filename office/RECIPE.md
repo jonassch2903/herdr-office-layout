@@ -91,10 +91,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
 - Clicking a worker or their desk runs `agent.focus`. The **Neuen einstellen** button in the strip
-  first asks for a project folder with `pickFolder({ prompt: "Starten" })` (canceling starts
-  nothing), then opens a tab in that folder in the active space running the rail's `agent` prop
-  (`"omp"` in `office.json`); a program Herdr's table does not list (omp) starts as its bare
-  command, and without the prop the first installed agent from `knownAgents()` is used.
+  first asks for a project folder with `pickFolder({ prompt: "Starten" })` when the active space
+  is local (canceling starts nothing), then opens a tab in that folder in the active space
+  running the rail's `agent` prop (`"omp"` in `office.json`). A space on another machine skips
+  the local picker and starts its tab in that space's own folder. A program Herdr's table does
+  not list (omp) starts as its bare command, and without the prop the first installed agent
+  from `knownAgents()` is used.
   Hovering a desk shows a yellow sticky note: name, tab, space, title, status. Desk order
   follows `agents()` and is passed to `setAgentOrder`.
 - **Fit**: tries 1–6 rows, each space getting `ceil(n / rows)` columns (at least 4 when there is one
