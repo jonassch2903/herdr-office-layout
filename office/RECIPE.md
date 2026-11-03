@@ -22,16 +22,21 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      clock at `mid-165` (48px, hour marks, real time: long black minute hand, short red hour hand), a door at `mid-40`
      (80px, `#a8643a`, opens to a dark doorway while someone arrives), a notice at `mid+90`, a
      window at `w-340` (day `#8fd0f5` with clouds, 17–19h sunset `#f2a65a`, 19–6h night
-     `#1d2547` with moon and stars), a framed picture at `w-200`, a water cooler at `w-112`, a
-     **Raucherecke** at the left end of the wall (`RAUCHEN` sign, a small ashtray stand and
-     cigarette butts on the floor), and an **OMP stats** screen in the gap between the right
-     bookshelf and the window (or left of the shelves when that gap is too narrow): dark screen in
-     a brown frame, `OMP STATS`, a live dot, sessions, completed turns, status counts and a
-     four-minute activity strip.
+     `#1d2547` with moon and stars; seasonal details behind the mullions, see **Seasons**), a
+     framed picture at `w-200`, a water cooler at `w-112`, a **Raucherecke** at the left end of the
+     wall (`RAUCHEN` sign, a small ashtray stand and cigarette butts on the floor), and an
+     **office stats** screen in the gap between the right bookshelf and the window (or left of the
+     shelves when that gap is too narrow): a 236×116 dark screen in a brown frame at y=18,
+     `OFFICE` + `STATS`, a live dot, all sessions on the floor, completed turns,
+     working / needs you / done / idle counts and a four-minute activity strip. When someone is
+     blocked, its bottom label row becomes a blinking red `NEEDS YOU` with that worker's name and
+     `+N` others; clicking it focuses the displayed agent and advances the queue. The screen is
+     left out below about 1290px wide, and the queue goes with it.
    - **Floor** `#e2a465` with `#c98a4f` planks every 22px, seams staggered at random, a few knots.
      A potted plant in the bottom-right corner.
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
-     `N on the clock` (12px).
+     `N on the clock` (12px). When there is floor news, a third line (10px, 92 wide, wrapped)
+     shows the newest event and nothing older.
    - **Desks**: slots of 170×190 at scale k, one per agent: one row up to four agents (more
      rows only when they fit better), one group of columns per project (a space someone named,
      else the folder the agent's terminal works in), groups 60k apart, centred, starting `40k`
@@ -52,7 +57,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      `codex #2f3640`, `gemini #4f7dc9`, `opencode #8a62b8`, `pi #e58fb6`, `grok #5b5b66`, ...),
      otherwise random. The first worker, Michels Mum, always looks like a woman: long hair or a
      bun, a coloured skirt while standing and lipstick in the front view.
-   - **Cat**: a 10×7 sprite in a random coat, roaming the walkways.
+   - **Cat**: a 10×7 sprite in a random coat, roaming the walkways or sitting on a blocked
+     worker's desk in front of the monitor; click it to pet it.
 2. **Strip**, 28px `#8a5530`: `space / tab` in `#fff1d6`, and a cream **Neuen einstellen**
    button on the right.
 3. **Terminals**, weight 1, 12px side padding and no vertical padding, so the panes reach the bottom:
@@ -71,10 +77,23 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   agent) bouncing off the edges, its own speed per agent.
 - **Wandering**: each second an idle worker gets up with chance 3.5% (done 1.5%) and goes to the
   water cooler (comes back holding a cup), a bookshelf (a book), the window, the door, the plant,
-  a random spot in an aisle, or another seated worker's desk (a `...` chat bubble). They stay 3–11s
-  and walk back. Starting work or getting blocked sends them straight back. Michels Mum's spot
-  list swaps both water-cooler entries for `smoke`: she walks to the `RAUCHEN` sign, faces the
-  wall, holds a cigarette and shows a `~` smoke wisp. Everyone else keeps the usual spots.
+  a random spot in an aisle, or another seated worker's desk (a chat bubble: `...` or a short
+  line). They stay 3–11s and walk back. Starting work or getting blocked sends them straight
+  back. Michels Mum's spot list swaps both water-cooler entries for `smoke`: she walks to the
+  `RAUCHEN` sign, faces the wall, holds a cigarette and shows a `~` smoke wisp. Everyone else
+  keeps the usual spots.
+- **Small talk**: while a worker is `there` at the water cooler or at a `chat` desk, one speaker
+  per spot shows a 100px white speech bubble with one of 12 short German office lines. The speaker
+  is the visitor with the lowest `hash(address)`; the other chat visitor keeps the animated `...`
+  bubble, and thoughts are suppressed at those spots. The line is picked from `hash()` of the
+  address and the trip's `until`, so it stays the same for the whole stay.
+- **Cat**: the cat walks the same walkways at 0.07 px/ms and rests 1–4s at most destinations
+  (40% of the other rests last 8–23s). For each new destination, with 60% chance when someone is
+  blocked, it goes to that worker's desk instead: it walks to the aisle and up to the seat, sits
+  on the desk in front of the monitor (`onDesk`, no draw offset, facing left), stores the worker's
+  address in `watch`, and stays 18–40s. When the watched worker recovers or leaves, the cat clears
+  `watch`, ends the rest and walks off. This desk hop is the one deliberate exception to the
+  walkways. Clicking the cat sets `pet` for 2.5s and shows a `♥` bubble.
 - **Walkways**: the corridor along the wall (walker top at `WALL-40`), the aisle behind each row
   (`row top + 128k`), a lane past each end of the rows and one between each pair of space groups.
   Everyone keeps to their own line, up to ±8k off the middle, and waits (up to 1.5s, the cat 2s)
@@ -94,17 +113,41 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - **Projects**: desks are grouped by project: a space someone named, else the folder the agent's
   terminal works in, whose last path part names the rug. Agents in the same folder share a rug;
   an agent with no folder falls back to its space. Windows paths compare case-insensitively.
-- **OMP stats**: the wall screen counts the OMP agents on the floor (`app` is `omp`), sums their
-  completed turns from `terminals()` by address, shows working / needs you / done / idle counts,
-  and plots how many OMP workers were busy over the last four minutes, sampled every ~10s. It
-  hangs between the right bookshelf and the window, or left of the shelves when that gap is
-  narrower; it is drawn each render over the retained room and dims with the night overlay.
+- **Office stats**: the wall screen covers every agent on the floor, not just OMP: it counts
+  every agent in `crew` (`list`), sums `turn` for every terminal matched by address, shows
+  working / needs you / done / idle counts, and plots how many workers were busy over the last
+  four minutes, sampled every ~10s into `hist` (24 bars). When nobody is blocked the bottom row
+  reads `ACTIVITY · 4 MIN`. It hangs between the right bookshelf and the window, or left of the
+  shelves when that gap is narrower; it is drawn each render over the retained room, dims with the night
+  overlay, and is left out below about 1290px wide.
+- **Needs-you queue**: when at least one worker is blocked, the stats board's bottom row replaces
+  `ACTIVITY · 4 MIN` with a blinking red `NEEDS YOU` and the German name of
+  `blocked[blockedCursor % blocked.length]`, plus `+N` for the others. Clicking it stops
+  propagation, focuses that terminal with `run("agent.focus", { terminal })`, and advances
+  `blockedCursor`; in demo mode it is display-only. It covers every blocked agent, not only OMP.
+- **Event ticker**: the sign's third line shows `news[0]`, the newest floor event. `pushNews()`
+  unshifts `{text, tone}`, keeps six and ignores an immediate repeat. Events are arrivals
+  (`Neu: <name>`, green), a status change to blocked (`<name> braucht dich`, red) or done
+  (`<name> ist fertig`, green), and every new hundred of a terminal's `turn`
+  (`<name>: N Turns`, brown). `since` detects status transitions, `lastTurn` detects turn
+  milestones (first sight is silent; a lower turn resets the baseline), and `known` detects
+  arrivals. `since` and `lastTurn` are pruned when an agent leaves. Demo starts with
+  `Neuer Kollege: Dietrich`.
+- **Seasons**: the window keeps day/sunset/night and clouds, and adds seasonal details in a
+  clipped transparent pane at (2,2) 78×64, with the mullions drawn after. Dec–Feb: 6–10 white
+  2×2 snowflakes; December adds 8 colored 4×4 bulbs on a wire above the frame. Mar–May: 5–7 pink
+  petals, and April adds 4–6 rain streaks. Jun–Aug: an 8×8 sun with rays in the daytime sky only
+  (dusk and night keep their sun/moon). Sep–Nov: 5–7 orange/brown leaves. Seasonal randomness uses
+  its own seeded stream (`seed ^ ((month+1)*0x9e3779b9)`), leaving the room's sequence untouched.
+  `loop` is a from→to→from pulse, so flakes, petals, rain and leaves drift down and back.
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
-- Clicking a worker or their desk runs `agent.focus`. The **Neuen einstellen** button in the strip
-  first asks for a project folder with `pickFolder({ prompt: "Starten" })` when the active space
-  is local (canceling starts nothing), then opens a tab in that folder in the active space
-  running the rail's `agent` prop (`"omp"` in `office.json`). A space on another machine skips
+- Clicking a worker or their desk runs `agent.focus`; the stats board's `NEEDS YOU` row focuses
+  the displayed agent and advances `blockedCursor`; clicking the cat pets it. The
+  **Neuen einstellen** button in the strip first asks for a project folder with
+  `pickFolder({ prompt: "Starten" })` when the active space is local (canceling starts nothing),
+  then opens a tab in that folder in the active space running the rail's `agent` prop (`"omp"` in
+  `office.json`). A space on another machine skips
   the local picker and starts its tab in that space's own folder. A program Herdr's table does
   not list (omp) starts as its bare command, and without the prop the first installed agent
   from `knownAgents()` is used.
@@ -122,23 +165,30 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `{role: "pane"}`).
   `preview` points at `layouts/office.svg` for the settings screen.
 - `mods/office/art.js`: sprites as rows of palette letters (`sprite(rows, palette, s)` draws one
-  `div` per run of a colour), the room (including `smokingArea()`), desk clutter, and per-agent
-  looks seeded from a hash of the agent's address. `look(a, { woman: true })` swaps in long hair
-  or a bun, a skirt and lipstick.
+  `div` per run of a colour), the room (including `smokingArea()` and the seasonal window
+  `window_(x, now, seed)`), desk clutter, and per-agent looks seeded from a hash of the agent's
+  address. The window derives hour and month from `now`: day/dusk/night, then snow, petals/rain,
+  a sun or leaves, plus December lights. `look(a, { woman: true })` swaps in long hair or a bun,
+  a skirt and lipstick.
 - `mods/office/main.js`: one mod, three roles by `props().role`. The room (wall, floor,
   furniture) is a retained nested view (`cx.new`), rebuilt only when the size, the minute or the
   door changes. A 250ms timer advances walks (one
   straight leg at a time) and, every fourth tick, rolls for new walks, thoughts and the cat. It
   calls `cx.notify()` only when something changed. Every movement is a native
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
-  groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`; the wall
-  OMP screen is rebuilt by `render()` from `agents()` and `terminals()`; `tick()` samples its
-  activity strip into `hist` every ~10s. `render()` also sets `mumAddress` to the first agent:
+  groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`. The wall
+  office screen is rebuilt by `render()` from `agents()` and `terminals()` for every agent on the
+  floor; `tick()` samples the busy-worker count into `hist` every ~10s. `render()` also maintains
+  the needs-you cursor (`blockedCursor`), the news feed (`pushNews` into `news`, fed by `since`
+  and `lastTurn`), and the cat's `watch`; `moveCat()` steers it to blocked desks and `tick()`
+  expires the petting bubble (`pet`). `SMALL_TALK` lines are chosen per stay in `worker()`.
+  `render()` also sets `mumAddress` to the first agent:
   `nameFor()` gives that address `Michels Mum`, `look()` renders her as a woman, and `tick()` picks
   from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
-  every state, in three spaces, who wander four times as often, and disables the hire button. The
-  preview was taken that way.
+  every state, in three spaces, who wander four times as often, and disables agent focus and the
+  hire button; the stats queue is display-only, but the cat can still be petted. It also seeds
+  `Neuer Kollege: Dietrich`. The preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
   `run("agent.focus")`, `run("tab.new")` and `setAgentOrder`. No network, no `exec`, no files
   outside its folder.
@@ -160,9 +210,26 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   project folder (or use **Neuen einstellen**) for a rug of its own.
 - Desk titles wrap instead of truncating, so a title longer than the 60-unit aisle reaches into the
   next row (and walkers draw over it); it stays complete either way.
-- The wall stats screen needs the gap between the right bookshelf and the window, or the wall left
-  of the shelves beside the sign. Below about 1290px wide it is left out rather than overlapping
-  the wall furniture.
+- The office stats screen needs the gap between the right bookshelf and the window, or the wall
+  left of the shelves beside the sign. Below about 1290px wide it is left out rather than
+  overlapping the wall furniture, and the `NEEDS YOU` queue disappears with it. The screen,
+  counts, turn total and `hist` cover every agent on the floor: there is no OMP filter, so a busy
+  non-OMP terminal still moves `TURNS` and the strip.
+- The cat's trip to a blocked desk is the only deliberate exception to the walkways: it uses the
+  seat coordinate (`seat.y - 7k`) and draws with no 30k offset while `onDesk`. Clear `watch` as
+  soon as the agent is no longer blocked so it leaves; clicking only sets `pet`, it never moves
+  the cat.
+- Small talk picks one speaker per spot by the lowest `hash(address)`; the other chat visitor
+  keeps `...`. The line is keyed by the trip's `until`, so changing that timestamp mid-stay
+  changes the line. Thoughts are suppressed only while `there` at the cooler or a chat desk.
+- The seasonal window uses its own RNG stream (`seed ^ ((month+1)*0x9e3779b9)`); don't draw from
+  the room's `R` or books, knots and clouds change. The month rules are exact: Dec–Feb winter,
+  Mar–May spring, Jun–Aug summer, Sep–Nov autumn; December lights and April rain are extras.
+  Seasonal `loop`s are from→to→from pulses, and each needs its stable id (`snow-{i}`, `xmas-{i}`,
+  `petal-{i}`, `rain-{i}`, `leaf-{i}`) or it restarts every render.
+- `pushNews()` shows only `news[0]`; it keeps six entries and ignores an immediate duplicate.
+  Baselines are silent on first sight (`since`, `lastTurn`), and a lower `turn` resets
+  `lastTurn` without news. Departed agents are pruned from both maps.
 - Notify only on real changes (hover included): a redraw re-reports hover, so an unconditional
   `cx.notify()` in `on_hover` loops.
 - After switching layouts back and forth quickly, Herdr can show "This view could not be
@@ -176,13 +243,26 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   errors.
 - Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
   canceling opens nothing; an empty office shows no desks.
-- The wall screen shows the OMP sessions and their turns, working / needs you / done / idle counts,
-  and its activity strip fills over four minutes; starting or finishing an agent updates it.
+- The wall screen shows all sessions and turns on the floor (OMP or not), working / needs you /
+  done / idle counts, and its activity strip fills over four minutes; starting or finishing any
+  agent updates it. With a blocked worker its bottom row blinks `NEEDS YOU` with that worker's
+  name and `+N`; clicking focuses that agent and the next click advances. With none blocked the
+  row reads `ACTIVITY · 4 MIN`. Below about 1290px the screen and the queue are gone.
 - Starting an agent opens the door, and a worker walks in to a new desk and starts typing.
 - When an agent asks for permission its worker jumps and its screen blinks `NEEDS YOU`. When it finishes while
-  you're elsewhere, the worker dozes with `zZz`.
+  you're elsewhere, the worker dozes with `zZz`. With a blocked agent, the cat sometimes sits on
+  that worker's desk in front of the monitor and leaves once the agent recovers; clicking the cat
+  shows a `♥` bubble.
 - Idle workers get up within a minute or so, walk the aisles and lanes without crossing desks,
-  and walk back. They return at once when their agent starts working.
+  and walk back. They return at once when their agent starts working. At the water cooler or a
+  chat desk exactly one visitor speaks a short German line (the other chat visitor shows `...`),
+  and the line holds for the stay.
+- The sign gains a third line only when there is news: a new colleague (`Neu:`), a blocked
+  (`braucht dich`) or finished (`ist fertig`) agent, or a new hundred turns. The newest event wins
+  and an immediate repeat is suppressed.
+- The window follows the calendar: snow Dec–Feb (plus 8 lit bulbs in December), pink petals
+  Mar–May (plus rain in April), an 8×8 sun in the daytime Jun–Aug, orange/brown leaves Sep–Nov;
+  day/sunset/night and clouds stay as before.
 - The first desk is Michels Mum, drawn with long hair or a bun and a skirt. Only she walks to the
   `RAUCHEN` corner, where she stands with a cigarette and a `~` smoke wisp; she never walks to the
   water cooler.

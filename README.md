@@ -39,17 +39,22 @@ A space on another machine skips the local picker and starts in that space's own
   a cup), a bookshelf (with a book), the window, the door, the plant, or another worker's desk for
   a chat. They keep to the walkways and hurry back when their agent starts working. Michels Mum,
   the first worker on the floor, never visits the water cooler: she goes to the `RAUCHEN` corner
-  and smokes a cigarette instead.
+  and smokes a cigarette instead. At the cooler and at a shared desk they trade short office
+  lines; the cat sometimes naps on a blocked worker's keyboard (click it to pet it). The sign on
+  the wall shows the latest floor event: a new colleague, a finished job, a blocked agent, or a
+  turn milestone.
 - New agents walk in through the door to their desk.
 - Every worker looks different (hair, skin, hairstyle, glasses), and their shirt colour follows the
   kind of agent. Michels Mum always looks like a woman (long hair or a bun, a skirt, lipstick).
   Every other worker gets an old-fashioned German name and a line under the desk with what they
-  are working on, taken from the terminal title OMP reports. Desks get random clutter, and an
-  office cat roams the floor.
-- The clock shows the real time, the window goes from day to sunset to night, and the room dims
-  at night while desk lamps come on.
-- A wall-mounted **OMP stats** screen shows live OMP sessions and their completed turns, counts
-  for working / needs you / done / idle, and a four-minute activity strip.
+  are working on, taken from the terminal title. Desks get random clutter, and an office cat
+  roams the floor.
+- The clock shows the real time, the window goes from day to sunset to night and follows the
+  seasons (snow, blossom and rain, summer sun, autumn leaves; a string of lights in December),
+  and the room dims at night while desk lamps come on.
+- A wall-mounted **office stats** screen shows live sessions and completed turns for every agent
+  on the floor, counts for working / needs you / done / idle, and a four-minute activity strip.
+  When someone is blocked, its **NEEDS YOU** line names the next one; click it to jump there.
 - Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab,
   project, space, title and status.
 - Each project gets its own group of desks on a coloured rug, with its name on a tag: a space

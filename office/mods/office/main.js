@@ -45,12 +45,24 @@ const MUM = "Michels Mum";
 const MUM_SPOTS = SPOTS.map((k) => (k === "cooler" ? "smoke" : k));
 const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
-// The wall screen is OMP's: live sessions, completed turns and a short activity strip. `turn` is
-// herdr-core's per-terminal count; the strip samples how many OMP workers are busy.
-const OMP = /^omp(?:\.exe)?$/i;
-const isOmp = (x) => OMP.test((x?.app ?? "").trim()) || OMP.test((x?.status?.app ?? "").trim())
-  || OMP.test((x?.agent ?? "").trim()) || OMP.test((x?.program?.name ?? "").trim()) || OMP.test((x?.program?.key ?? "").trim());
+// The wall screen is the floor's dashboard: live sessions, completed turns and a short activity
+// strip. `turn` is herdr-core's per-terminal count; the strip samples how many workers are busy.
 const HIST = 24, HIST_TICKS = 40; // one sample every 40 ticks (~10s): four minutes
+// Coffee-kitchen lines. Short enough for a 100px bubble; one speaker is picked per spot.
+const SMALL_TALK = [
+  "Hast du das Deploy gesehen?",
+  "Bei mir läuft's.",
+  "Nur noch ein Turn.",
+  "Die CI ist rot.",
+  "Wer hat die Tests kaputt gemacht?",
+  "Kaffee?",
+  "Der Build dauert wieder.",
+  "Ich review das gleich.",
+  "Das war kein Bug, das war ein Feature.",
+  "Hast du den Kunden gefragt?",
+  "Mein Prompt war zu lang.",
+  "Schon Feierabend?",
+];
 const short = (n) => (n > 9999 ? `${Math.round(n / 1000)}k` : `${n}`);
 // OMP titles look like "π > 🐙 ACT: …" or "π ⠙ 🏷️ AGNT: …": drop the logo, status glyph and
 // label icon, keep the tag and task text. Then only show a title that says something about the
@@ -116,12 +128,18 @@ export default class Office extends View {
     this.hover = null;
     this.minute = -1;
     this.n = 0;
-    this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false };
+    this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false, onDesk: false, watch: null };
     this.list = [];
     this.mumAddress = null; // the first agent on the floor, always Michels Mum
     this.names = {};     // address → old German name, fixed for the session
-    this.hist = [];      // OMP busy count, one sample every ~10s
+    this.hist = [];      // busy-worker count, one sample every ~10s
     this.histSeeded = false;
+    this.since = {};     // address → { status, at }, for the event ticker
+    this.lastTurn = {};  // address → last seen turn, for milestone news
+    this.news = [];      // floor events, newest first; the sign shows news[0]
+    this.newsSeeded = false;
+    this.blockedCursor = 0; // which blocked worker the stats board's queue targets
+    this.pet = 0;        // cat petting bubble until this timestamp
     if (props()?.role) return;
     this.roomView = cx.new(Room, this.roomProps());
     cx.timer.every(250, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
@@ -191,7 +209,7 @@ export default class Office extends View {
     const now = Date.now(), tick = this.n++, slow = tick % 4 === 0;
     let changed = false;
     if (tick % HIST_TICKS === 0) {
-      const crew = this.demo ? this.list : this.list.filter(isOmp);
+      const crew = this.list;
       this.hist.push(crew.filter(busy).length);
       if (this.hist.length > HIST) this.hist.shift();
       changed = true;
@@ -230,6 +248,7 @@ export default class Office extends View {
     }
     for (const [k, t] of Object.entries(this.thoughts)) if (now >= t.until) { delete this.thoughts[k]; changed = true; }
     changed = this.moveCat(now) || changed;
+    if (this.pet && now >= this.pet) { this.pet = 0; changed = true; }
     if (this.door && now >= this.door) { this.door = 0; changed = true; }
     return changed;
   }
@@ -239,17 +258,46 @@ export default class Office extends View {
     Object.assign(t, { phase: "back", path, i: 0, until: now + path[0].ms, hurry: false });
   }
 
+  // The sign's third line. Keep only a short tail; the newest event wins.
+  pushNews(text, tone = "#6b5a4a") {
+    if (this.news[0]?.text === text) return;
+    this.news.unshift({ text, tone });
+    if (this.news.length > 6) this.news.pop();
+  }
+
   moveCat(now) {
     const c = this.cat, g = this.geo;
+    // A blocked worker's desk is the best seat in the house. Leave as soon as they recover.
+    if (c.watch) {
+      const a = this.list.find((x) => x.address === c.watch);
+      if (!a || a.status !== "blocked") { c.watch = null; c.until = Math.min(c.until, now); }
+    }
     if (now < c.until) return false;
     if (c.path && c.i < c.path.length - 1) {
       if ((c.wait ?? 0) < 8 && this.crowded("cat", c.path[c.i + 1])) { c.wait = (c.wait ?? 0) + 1; c.until = now + 250; return false; }
       c.wait = 0; c.i++; c.until = now + c.path[c.i].ms; c.left = c.path[c.i].left; return true; }
     const at = c.path?.[c.i] ?? { r: -1, x: Math.round(this.size.width / 3) };
-    if (c.path && !c.resting) { c.resting = true; c.until = now + (Math.random() < 0.4 ? 8000 + Math.random() * 15000 : 1000 + Math.random() * 3000); return false; }
-    const to = { r: Math.floor(Math.random() * (g.rows + 1)) - 1, x: Math.round(8 + Math.random() * (this.size.width - 60)) };
-    c.path = this.path({ r: at.r, x: at.x }, to, CAT_WALK, Math.round((Math.random() * 16 - 8) * g.k));
-    Object.assign(c, { i: 0, until: now + c.path[0].ms, left: c.path[0].left, resting: false });
+    if (c.path && !c.resting) {
+      c.resting = true;
+      c.until = now + (c.onDesk
+        ? c.watch ? 18000 + Math.random() * 22000 : 1200 + Math.random() * 1800
+        : Math.random() < 0.4 ? 8000 + Math.random() * 15000 : 1000 + Math.random() * 3000);
+      return false;
+    }
+    // Prefer a blocked worker's desk; otherwise keep to the walkways.
+    const blocked = this.list.filter((a) => a.status === "blocked" && this.seats[a.address]);
+    const target = blocked.length && Math.random() < 0.6 ? blocked[Math.floor(Math.random() * blocked.length)] : null;
+    const from = c.onDesk ? { r: at.r, x: at.x, seat: at.y } : { r: at.r, x: at.x };
+    if (target) {
+      const st = this.seats[target.address], k = g.k;
+      const to = { r: st.row, x: Math.round(st.x + 20 * k), seat: Math.round(st.y - 7 * k) };
+      c.path = this.path(from, to, CAT_WALK, Math.round((Math.random() * 16 - 8) * k));
+      Object.assign(c, { i: 0, until: now + c.path[0].ms, left: true, resting: false, onDesk: true, watch: target.address });
+    } else {
+      const to = { r: Math.floor(Math.random() * (g.rows + 1)) - 1, x: Math.round(8 + Math.random() * (this.size.width - 60)) };
+      c.path = this.path(from, to, CAT_WALK, Math.round((Math.random() * 16 - 8) * k));
+      Object.assign(c, { i: 0, until: now + c.path[0].ms, left: c.path[0].left, resting: false, onDesk: false, watch: null });
+    }
     return true;
   }
 
@@ -328,20 +376,22 @@ export default class Office extends View {
   }
 
   // ---- wall stats -----------------------------------------------------------
-  // OMP's live dashboard: sessions on the floor, their completed turns, status counts and a
-  // four-minute strip of how many OMP workers were busy (`hist` is sampled in tick()). It hangs
-  // between the right bookshelf and the window, or left of the shelves when the wall is narrower;
-  // it is rebuilt every render (only the room under it is retained) and null when neither fits.
+  // The floor's live dashboard: every agent on the floor, their completed turns, status counts
+  // and a four-minute strip of how many workers were busy (`hist` is sampled in tick()). A
+  // needs-you queue cycles through blocked workers on click. It hangs between the right
+  // bookshelf and the window, or left of the shelves when the wall is narrower; it is rebuilt
+  // every render (only the room under it is retained) and null when neither fits.
   statsBoard(w, crew, turns) {
-    const bw = 236, bh = 110, mid = Math.round(w / 2);
+    const bw = 236, bh = 116, mid = Math.round(w / 2);
     const gapL = mid + 268, gapR = w - 348; // past the right shelf, before the window
     let x = Math.round((gapL + gapR - bw) / 2);
     if (x < gapL + 8 || x + bw > gapR - 8) { // no room between the shelf and the window
       x = 140; // left of the left shelf, beside the sign
       if (x + bw > mid - 268) return null;
     }
-    const y = 20, live = crew.length > 0;
+    const y = 18, live = crew.length > 0;
     const count = (st) => crew.filter((a) => a.status === st).length;
+    const blocked = crew.filter((a) => a.status === "blocked");
     const bars = Array.from({ length: HIST }, (_, i) => this.hist[i - (HIST - this.hist.length)] ?? 0);
     const peak = Math.max(1, ...bars), barW = 8;
     const stat = (c, label, n) => h_flex().items_center().gap(2)
@@ -351,7 +401,7 @@ export default class Office extends View {
     return div().absolute().left(x).top(y).w(bw).h(bh).bg("#2b2f3a").border(3).border_color("#6b3f1f")
       .child(v_flex().absolute().left(0).top(0).w(bw - 6).h(bh - 6).bg("#121a24").p(7).gap(2).overflow_hidden()
         .child(h_flex().items_center().gap(4)
-          .child(txt("OMP", 16, "#fff1d6"))
+          .child(txt("OFFICE", 16, "#fff1d6"))
           .child(txt("STATS", 10, "#7d8a9a"))
           .child(div().flex_1())
           .child(div().w(4).h(4).bg(live ? "#5ee08a" : "#5b5b66").id("stats-live")
@@ -370,10 +420,27 @@ export default class Office extends View {
         .child(h_flex().justify_between()
           .child(stat("#7aa8e0", "DONE", count("done")))
           .child(stat("#8a90a0", "IDLE", count("idle"))))
-        .child(h_flex().items_center().gap(4)
+        .when(blocked.length > 0, (e) => {
+          const target = blocked[this.blockedCursor % blocked.length];
+          const who = this.names[target.address] ?? target.tab_name;
+          const label = `${who}${blocked.length > 1 ? ` +${blocked.length - 1}` : ""}`;
+          return e.child(h_flex().items_center().gap(4).cursor_pointer()
+            .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+            .on_click((_e, cx) => {
+              if (this.demo) return;
+              this.blockedCursor = (this.blockedCursor + 1) % blocked.length;
+              run("agent.focus", { terminal: target.address });
+              cx.notify();
+            })
+            .child(txt("NEEDS YOU", 10, "#ff8a7a").id("stats-need")
+              .loop("opacity", { from: 0.45, to: 1, period: 650 }))
+            .child(div().flex_1())
+            .child(txt(label, 10, "#fff1d6").truncate()));
+        })
+        .when(blocked.length === 0, (e) => e.child(h_flex().items_center().gap(4)
           .child(txt("ACTIVITY", 10, "#8fa0b8"))
           .child(div().flex_1())
-          .child(txt("4 MIN", 8, "#63738a")))
+          .child(txt("4 MIN", 8, "#63738a"))))
         .child(h_flex().items_end().gap(1).w(bw - 6 - 14)
           .children(bars.map((v) => div().w(barW)
             .h(v ? Math.max(2, Math.round((v / peak) * 16)) : 2).bg(v ? "#5ee08a" : "#26313f")))));
@@ -399,7 +466,19 @@ export default class Office extends View {
       body = standing(lk, s, facing, !there && !enter, item, id);
     }
     const th = this.thoughts[a.address];
-    const chatting = t?.phase === "there" && t.spot.key === "chat";
+    const there = t?.phase === "there";
+    const atCooler = there && t.spot.key === "cooler";
+    const chatting = there && t.spot.key === "chat";
+    // One speaker per spot: two bubbles at the cooler or a shared desk would sit on top of each
+    // other. The lowest address hash talks; the other keeps sipping.
+    const mates = atCooler || chatting ? this.list.filter((o) => {
+      const ot = this.trips[o.address];
+      return ot?.phase === "there" && ot.spot.key === t.spot.key
+        && (t.spot.key !== "chat" || ot.spot.other === t.spot.other);
+    }) : [];
+    const speaks = !mates.length || mates.sort((a, b) => hash(a.address) - hash(b.address))[0].address === a.address;
+    const talk = (atCooler || chatting) && speaks
+      ? SMALL_TALK[hash(`${a.address}:${t.until}`) % SMALL_TALK.length] : null;
     return div().id(id).absolute().left(pos.x).top(pos.y).w(16 * s).h(20 * s)
       .transition("left", { duration: ms, easing: "linear" }).transition("top", { duration: ms, easing: "linear" })
       .cursor_pointer().on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -408,8 +487,9 @@ export default class Office extends View {
       .when(!t && a.status === "done", (e) => e.child(txt("z", 16, "#24406e").absolute().left(14 * s).top(-2 * s).id(`${id}-z`).frames(["z", "zZ", "zZz", ""], 500)))
       .when(t?.phase === "there" && t.spot.key === "smoke", (e) => e.child(txt("~", 12, "#e8e8e8")
         .absolute().left(13 * s).top(-4 * s).id(`${id}-smoke`).frames(["", "~", "≈", "~", ""], 700)))
-      .when(chatting, (e) => e.child(bubble(txt(".", 12, ink).id(`${id}-chat`).frames([".", "..", "..."], 400)).left(10 * s).top(-6 * s)))
-      .when(!!th && !chatting, (e) => e.child(bubble(txt(th.sym, 12, ink)).left(11 * s).top(-6 * s)));
+      .when(!!talk, (e) => e.child(bubble(txt(talk, 10, ink).w(100).whitespace_normal()).left(10 * s).top(-6 * s)))
+      .when(chatting && !talk, (e) => e.child(bubble(txt(".", 12, ink).id(`${id}-chat`).frames([".", "..", "..."], 400)).left(10 * s).top(-6 * s)))
+      .when(!!th && !chatting && !atCooler, (e) => e.child(bubble(txt(th.sym, 12, ink)).left(11 * s).top(-6 * s)));
   }
 
   render() {
@@ -459,8 +539,35 @@ export default class Office extends View {
     this.mumAddress = list[0]?.address ?? null;
     const usedNames = new Set();
     for (const a of list) this.nameFor(a, usedNames);
-    const crew = p.demo ? list : list.filter(isOmp);
+    const crew = list;
     const terms = p.demo ? [] : terminals();
+    const nowMs = Date.now();
+    const arrivals = this.known ? list.filter((a) => !this.known.has(a.address)) : [];
+    const turnOf = new Map(terms.map((t) => [t.address, Number(t.turn) || 0]));
+    for (const a of list) {
+      const prev = this.since[a.address];
+      if (prev?.status !== a.status) {
+        this.since[a.address] = { status: a.status, at: nowMs };
+        if (prev) {
+          if (a.status === "blocked") this.pushNews(`${this.names[a.address]} braucht dich`, "#a8322a");
+          else if (a.status === "done") this.pushNews(`${this.names[a.address]} ist fertig`, "#2f6b4f");
+        }
+      }
+      if (turnOf.has(a.address)) {
+        const turn = turnOf.get(a.address), last = this.lastTurn[a.address];
+        if (last == null || turn < last) this.lastTurn[a.address] = turn;
+        else if (Math.floor(turn / 100) > Math.floor(last / 100)) {
+          this.lastTurn[a.address] = turn;
+          this.pushNews(`${this.names[a.address]}: ${Math.floor(turn / 100) * 100} Turns`, "#8a6a2a");
+        }
+      }
+    }
+    for (const a of arrivals) this.pushNews(`Neu: ${this.names[a.address]}`, "#2f6b4f");
+    if (p.demo && !this.newsSeeded) {
+      this.news = [];
+      this.pushNews("Neuer Kollege: Dietrich", "#2f6b4f");
+      this.newsSeeded = true;
+    }
     const addresses = new Set(crew.map((a) => a.address));
     const turns = p.demo ? 128 : terms
       .filter((t) => addresses.has(t.address))
@@ -534,10 +641,14 @@ export default class Office extends View {
       }
     }
     this.known = new Set(list.map((a) => a.address));
+    for (const key of Object.keys(this.since)) if (!this.known.has(key)) delete this.since[key];
+    for (const key of Object.keys(this.lastTurn)) if (!this.known.has(key)) delete this.lastTurn[key];
     for (const key of Object.keys(this.trips)) if (!this.known.has(key)) delete this.trips[key];
     for (const t of Object.values(this.trips)) if (t.phase === "enter" && ts >= t.until) t.phase = "back";
 
     const c = this.cat, cp = c.path?.[c.i] ?? { x: Math.round(w / 3), y: this.geo.topY, ms: 16 };
+    const onDesk = c.onDesk && c.i === (c.path?.length ?? 0) - 1;
+    const petting = this.pet > Date.now();
     const hd = desks.find((d) => d.a.address === this.hover), hovered = hd?.a;
     return div().id("office-root").relative().size_full().overflow_hidden().bg("#e2a465")
       .on_size_change((size, cx) => { this.size = size; this.syncRoom(); cx.notify(); })
@@ -555,10 +666,13 @@ export default class Office extends View {
         return div().absolute().left(g.x - q(8)).top(top - q(8) - ts - 8).px(8).py(4).bg(edge)
           .child(txt(g.name.slice(0, 20), ts, "#fff8e1"));
       }))
-      .child(div().id("cat").absolute().left(cp.x).top(cp.y + Math.round(30 * k))
-        .transition("left", { duration: cp.ms, easing: "linear" }).transition("top", { duration: cp.ms, easing: "linear" })
-        .child(cat(c.coat, s, c.left)))
       .children(list.map((a) => this.worker(a, k, s)))
+      .child(div().id("cat").absolute().left(cp.x).top(cp.y + (onDesk ? 0 : Math.round(30 * k)))
+        .transition("left", { duration: cp.ms, easing: "linear" }).transition("top", { duration: cp.ms, easing: "linear" })
+        .cursor_pointer()
+        .on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.pet = Date.now() + 2500; cx.notify(); })
+        .child(cat(c.coat, s, onDesk ? true : c.left))
+        .when(petting, (e) => e.child(bubble(txt("♥", 12, "#b83a5a")).left(10 * s).top(-6 * s))))
       .when(night, (e) => e.child(r(0, 0, w, h, "#0b123650")))
       .when(hour >= 17 && hour < 19, (e) => e.child(r(0, 0, w, h, "#f2a65a1a")))
       .when(!!hovered, (e) => {
@@ -573,7 +687,8 @@ export default class Office extends View {
           .child(txt(hovered.status.toUpperCase(), 12, hovered.status === "blocked" ? "#a8322a" : ink)));
       })
       .child(v_flex().absolute().left(16).top(14).gap(4).p(8).bg("#fbfbf6").border(3).border_color("#6b3f1f")
-        .child(txt("THE OFFICE", 16)).child(txt(`${list.length} on the clock`, 12, "#6b5a4a")));
+        .child(txt("THE OFFICE", 16)).child(txt(`${list.length} on the clock`, 12, "#6b5a4a"))
+        .when(!!this.news.length, (e) => e.child(txt(this.news[0].text, 10, this.news[0].tone).w(92).whitespace_normal())));
   }
 }
 

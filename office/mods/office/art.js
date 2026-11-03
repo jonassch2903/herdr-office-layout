@@ -135,14 +135,64 @@ function clock(x, y, now) {
   return face.children(marks).children(hand(h / 12, 9, 3, "#a8322a")).children(hand(m / 60, 14, 2, "#222")).child(r(c - 1, c - 1, 4, 4, "#222"));
 }
 
-function window_(x, hour) {
+function window_(x, now, seed) {
+  const hour = now.getHours(), month = now.getMonth();
   const night = hour >= 19 || hour < 6, dusk = hour >= 17 && hour < 19;
   const sky = night ? "#1d2547" : dusk ? "#f2a65a" : "#8fd0f5";
   const el = r(x, 26, 90, 76, "#f4f4f0").border(4).border_color("#6b3f1f").child(r(2, 2, 78, 64, sky));
   if (dusk) el.child(r(2, 40, 78, 26, "#e0705a")).child(r(52, 30, 14, 10, "#ffd86a"));
   else if (night) el.child(r(56, 10, 10, 10, "#f4f0c8")).children([[12, 14], [30, 8], [22, 40], [44, 30], [66, 48]].map(([a, b]) => r(a, b, 2, 2, "#f4f0c8")));
   else el.child(r(10, 14, 26, 8, "#ffffff")).child(r(16, 10, 14, 6, "#ffffff")).child(r(52, 34, 20, 6, "#ffffff"));
-  return el.child(r(40, 2, 4, 64, "#f4f4f0")).child(r(2, 32, 78, 4, "#f4f4f0"));
+
+  // Seasonal details get their own seeded stream, so books, knots and clouds keep their sequence.
+  const S = rng(seed ^ ((month + 1) * 0x9e3779b9));
+  const pane = div().absolute().left(2).top(2).w(78).h(64).overflow_hidden();
+  const winter = month === 11 || month <= 1, spring = month >= 2 && month <= 4;
+  const summer = month >= 5 && month <= 7, autumn = month >= 8 && month <= 10;
+  if (winter) {
+    const flakes = 6 + Math.floor(S() * 5);
+    for (let i = 0; i < flakes; i++) {
+      const sx = Math.floor(S() * 75), sy = Math.floor(S() * 60), period = 4000 + Math.floor(S() * 2400);
+      pane.child(r(sx, sy, 2, 2, "#ffffff").id(`snow-${i}`).loop("top", { from: sy, to: 64, period, easing: "linear" }));
+    }
+  } else if (spring) {
+    const petals = 5 + Math.floor(S() * 3);
+    for (let i = 0; i < petals; i++) {
+      const sx = Math.floor(S() * 75), sy = Math.floor(S() * 60), period = 5200 + Math.floor(S() * 2400);
+      pane.child(r(sx, sy, 2, 2, i % 2 ? "#e89ab0" : "#f2b8c6").id(`petal-${i}`).loop("top", { from: sy, to: 64, period, easing: "linear" }));
+    }
+    if (month === 3) {
+      const drops = 4 + Math.floor(S() * 3);
+      for (let i = 0; i < drops; i++) {
+        const sx = Math.floor(S() * 78), sy = Math.floor(S() * 56), period = 1100 + Math.floor(S() * 700);
+        pane.child(r(sx, sy, 1, 4, "#bcd8f0").id(`rain-${i}`).loop("top", { from: sy, to: 64, period, easing: "linear" }));
+      }
+    }
+  } else if (summer) {
+    // Daytime only: dusk keeps its setting sun and night its moon and stars.
+    if (!night && !dusk) pane
+      .child(r(47, 4, 8, 8, "#ffd86a"))
+      .child(r(50, 1, 2, 3, "#ffd86a")).child(r(50, 12, 2, 3, "#ffd86a"))
+      .child(r(44, 7, 3, 2, "#ffd86a")).child(r(55, 7, 3, 2, "#ffd86a"));
+  } else if (autumn) {
+    const leaves = 5 + Math.floor(S() * 3);
+    const LEAF = ["#d77a2a", "#b85a2a", "#e0a040"];
+    for (let i = 0; i < leaves; i++) {
+      const sx = Math.floor(S() * 76), sy = Math.floor(S() * 60), period = 4200 + i * 700 + Math.floor(S() * 600);
+      pane.child(r(sx, sy, i % 3 === 0 ? 3 : 2, 2, LEAF[i % 3]).id(`leaf-${i}`).loop("top", { from: sy, to: 64, period, easing: "linear" }));
+    }
+  }
+  const extra = [];
+  if (month === 11) {
+    const XMAS = ["#e05050", "#5fbf6a", "#ffd86a", "#6fa8e8"];
+    extra.push(r(x + 4, 19, 82, 1, "#3f5a3a"));
+    for (let i = 0; i < 8; i++) {
+      extra.push(r(x + 4 + Math.round(i * 78 / 7), 19, 4, 4, XMAS[i % 4])
+        .id(`xmas-${i}`).loop("opacity", { from: 0.35, to: 1, period: 900 + i * 137 }));
+    }
+  }
+  el.child(pane).child(r(40, 2, 4, 64, "#f4f4f0")).child(r(2, 32, 78, 4, "#f4f4f0"));
+  return [el, ...extra];
 }
 
 // Michels Mum's corner: a RAUCHEN sign, an ashtray stand and a few butts on the floor. The walker's
@@ -169,7 +219,7 @@ export function room(w, h, { seed, now, doorOpen }) {
   }
   // a few knots and scuffs on the floor
   const knots = Array.from({ length: Math.floor(w * (h - WALL) / 40000) }, () => r(Math.floor(R() * w), WALL + 20 + Math.floor(R() * (h - WALL - 20)), 4, 2, "#cf9055"));
-  const mid = Math.round(w / 2), hour = now.getHours();
+  const mid = Math.round(w / 2);
   return [
     r(0, 0, w, WALL, "#c3cfe0"),
     r(0, 0, w, 6, "#9aa9bf"),
@@ -186,7 +236,7 @@ export function room(w, h, { seed, now, doorOpen }) {
     shelf(mid - 260, R), shelf(mid + 190, R),
     clock(mid - 165, 34, now),
     r(mid + 90, 36, 26, 32, "#fbfbf6").border(2).border_color("#9a9a9a").children([6, 12, 18, 24].map((y) => r(4, y, 8 + Math.floor(R() * 8), 2, "#777"))),
-    window_(w - 340, hour),
+    ...window_(w - 340, now, seed),
     r(w - 200, 40, 50, 60, "#d9b25a").border(4).border_color("#6b3f1f")
       .child(r(0, 0, 42, 52, "#8fc6e8")).child(r(0, 28, 42, 24, "#5aa064")).child(r(18, 18, 6, 22, "#7a4a28")).child(r(12, 10, 18, 14, "#3f7a3a")),
     ...smokingArea(),
