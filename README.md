@@ -22,8 +22,8 @@ Ask your agent to add this layout (it reads every file first), or by hand:
 
 Nothing to install: the pixel font ships with the mod. It makes no network requests, runs no
 programs of its own and reads no files outside its folder. Clicking **Neuen einstellen** in the
-wood strip opens a new tab running `omp`, as set by the rail's `agent` prop in the layout (Herdr's
-`tab.new`).
+wood strip asks for a project folder, then opens a new tab running `omp` there, as set by the
+rail's `agent` prop in the layout (Herdr's `tab.new`). Canceling the folder picker opens nothing.
 
 ## The office
 
@@ -52,7 +52,8 @@ wood strip opens a new tab running `omp`, as set by the rail's `agent` prop in t
   tag.
 - One row of four desks shows by default; more desks (and rows when they fit better) appear as
   agents join, and everything shrinks to fit. Workers scale with them and stay crisp.
-- Click **Neuen einstellen** in the strip below the office to start `omp`.
+- Click **Neuen einstellen** in the strip below the office, pick the project folder, and `omp`
+  starts there.
 - Workers keep to their own line in the walkways and wait for each other (and the cat).
 
 Under the office a wood strip shows the current space and tab plus the **Neuen einstellen**

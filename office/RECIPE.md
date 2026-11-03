@@ -91,10 +91,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - **Night** (19–6h): the office dims under `#0b123650` and every desk lamp glows. At 17–19h a warm
   tint.
 - Clicking a worker or their desk runs `agent.focus`. The **Neuen einstellen** button in the strip
-  opens a tab in the active space running the rail's `agent` prop (`"omp"` in `office.json`); a
-  program Herdr's table does not list (omp) starts as its bare command, and without the prop the
-  first installed agent from `knownAgents()` is used. Hovering a desk shows a yellow sticky note:
-  name, tab, space, title, status. Desk order follows `agents()` and is passed to `setAgentOrder`.
+  first asks for a project folder with `pickFolder({ prompt: "Starten" })` (canceling starts
+  nothing), then opens a tab in that folder in the active space running the rail's `agent` prop
+  (`"omp"` in `office.json`); a program Herdr's table does not list (omp) starts as its bare
+  command, and without the prop the first installed agent from `knownAgents()` is used.
+  Hovering a desk shows a yellow sticky note: name, tab, space, title, status. Desk order
+  follows `agents()` and is passed to `setAgentOrder`.
 - **Fit**: tries 1–6 rows, each space getting `ceil(n / rows)` columns (at least 4 when there is one
   space), with `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win
   only when they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
@@ -120,8 +122,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, and disables the hire button. The
   preview was taken that way.
-- Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `run("agent.focus")`,
-  `run("tab.new")` and `setAgentOrder`. No network, no `exec`, no files outside its folder.
+- Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
+  `run("agent.focus")`, `run("tab.new")` and `setAgentOrder`. No network, no `exec`, no files
+  outside its folder.
 
 ## Watch out
 
@@ -146,7 +149,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 
 - `layout.switch {"name":"office"}` shows the office with one worker per running agent (one row of
   four desks by default), and `herdr-app status` reports no errors.
-- Clicking **Neuen einstellen** opens a tab running `omp`; an empty office shows four spare desks.
+- Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
+  canceling opens nothing; an empty office shows four spare desks.
 - The wall screen shows the OMP sessions and their turns, working / needs you / done / idle counts,
   and its activity strip fills over four minutes; starting or finishing an agent updates it.
 - Starting an agent opens the door, and a worker walks in to a new desk and starts typing.

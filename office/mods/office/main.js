@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { agents, spaces, panes, props, run, setAgentOrder, knownAgents, terminals } from "herdr";
+import { agents, spaces, panes, props, run, setAgentOrder, knownAgents, terminals, pickFolder } from "herdr";
 import { ink, WALL, SLOT_W, SLOT_H, SCREEN, CATS, RUGS, r, icon, txt, hash, rng, pick, look, deskLook, clutter, seated, standing, cat, room } from "./art.js";
 
 // A pixel-art office: every agent is a little worker at a desk, and each space gets its own
@@ -413,11 +413,15 @@ export default class Office extends View {
             if (demo) return;
             const want = p.agent; // the program to start ("omp" in the layout); unset: most-used installed
             cx.spawn(async () => {
-              const known = await knownAgents();
+              const [folder, known] = await Promise.all([
+                pickFolder({ prompt: "Starten" }),
+                knownAgents(),
+              ]);
+              if (!folder) return;
               const ag = want
                 ? known.find((x) => x.installed && (x.key === want || x.run[0] === want))
                 : known.find((x) => x.installed);
-              run("tab.new", { ...(ag ? { argv: ag.run } : want ? { argv: [want] } : {}) });
+              run("tab.new", { folder, ...(ag ? { argv: ag.run } : want ? { argv: [want] } : {}) });
             });
           })
           .child(txt("Neuen einstellen", 12, ink)));

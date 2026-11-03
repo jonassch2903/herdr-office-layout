@@ -19,7 +19,7 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 | Layout block | Props | Mod behavior |
 | --- | --- | --- |
 | `office-floor` (fixed 400 px, `window_drag`) | none | Full office: simulation, room view, timer |
-| `office-rail` (fixed 28 px) | `{role: "rail", demo, agent}` | Active space / tab strip and **Neuen einstellen**; `agent` names the program to start (`"omp"` here) |
+| `office-rail` (fixed 28 px) | `{role: "rail", demo, agent}` | Active space / tab strip and **Neuen einstellen**; `agent` names the program to start (`"omp"` here) after a folder picker |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
 The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:100`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
@@ -112,7 +112,7 @@ herdr-app shot      # visual spot-check
 - `render()` is impure: it sets `demo`, `list`, `names`, `seats`, `trips`, `known`, `door`, and (first demo render) `hist`/`histSeeded`. Do not assume a pure render or safe concurrent mutation.
 - No `try`/`catch` or logging. Use optional chaining and defaults: `props() ?? {}`, `SCREEN[status] ?? SCREEN.idle`, `pane?.program?.name ?? "Terminal"`.
 - No dependency injection or service container: import host APIs directly from `gpui-kit`/`gpui-base`/`herdr`, and keep drawing helpers in `./art.js`.
-- Async is limited to `cx.spawn(async () => { const ag = (await knownAgents()).find(x => x.installed); … })` for the strip's **Neuen einstellen** button. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
+- Async is limited to `cx.spawn(async () => { const [folder, known] = await Promise.all([pickFolder(…), knownAgents()]); … })` for the strip's **Neuen einstellen** button. `run(...)` is fire-and-forget. Use `cx.timer.every`, not `setTimeout`/`setInterval`.
 
 ### Rendering and geometry
 
@@ -125,14 +125,14 @@ herdr-app shot      # visual spot-check
 
 ### Interaction and animation
 
-- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button starts the rail's `agent` prop (`"omp"` in the layout) via `run("tab.new", { argv: agent.run })`, or `argv: [agent]` when Herdr's table does not know that program; with no prop it falls back to the first installed agent.
+- Clicks: call `cx.stop_propagation()` in `on_mouse_down` so desk/worker clicks do not drag the window; then `run("agent.focus", { terminal: address })`. The strip's **Neuen einstellen** button asks for a project folder with `pickFolder({ prompt: "Starten" })`; canceling starts nothing. It then starts the rail's `agent` prop (`"omp"` in the layout) via `run("tab.new", { folder, argv: agent.run })`, or `argv: [agent]` when Herdr's table does not know that program; with no prop it falls back to the first installed agent.
 - Hover: track only a real change before `cx.notify()`. A redraw re-reports hover, so an unconditional notify loops.
 - Every `.transition`, `.loop`, or `.frames` element needs a stable `.id()` (`desk-{address}`, `w-{address}`, `code-{address}-{i}`, `need-{address}`, `dvd-x/y-{address}`, `stats-live`, `cat`). Without one, the animation restarts on every render.
 - `setAgentOrder(addresses)` publishes desk order for `agent.next`/`agent.prev`; keep it on the floor and skip it only in demo mode.
 
 ### Host data contracts
 
-`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.name`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.status`, `.program`; `terminals()` items (live, from herdr-core) expose `.address`, `.state`, `.turn`, `.status`, `.agent`, and `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously). It only lists programs with a `run` in Herdr's table (plus `programs.json`): `omp` is not one of them, so the rail's `agent: "omp"` starts as the bare command `["omp"]`.
+`agents()` items use `.address`, `.status` (`working`/`blocked`/`done`/`idle`/unknown), `.tab_name`, `.space`, `.space_name`, `.title`, `.program`, `.focused`, and optional `.app`. `spaces()` items expose `.active`, `.name`, `.tabs[].active/.name`; `panes()` items expose `.pane`, `.status`, `.program`; `terminals()` items (live, from herdr-core) expose `.address`, `.state`, `.turn`, `.status`, `.agent`, and `.program`; `knownAgents()` items expose `.installed` and `.run`; the call is async, so `await` it inside `cx.spawn` (the spec shows it synchronously). It only lists programs with a `run` in Herdr's table (plus `programs.json`): `omp` is not one of them, so the rail's `agent: "omp"` starts as the bare command `["omp"]`. `pickFolder({ prompt })` is async, opens the system folder picker, and resolves with the chosen path or null when canceled.
 
 ### Invariants and gotchas
 
@@ -185,7 +185,7 @@ Grounded in `office/RECIPE.md` "Done when":
 3. Starting an agent opens the door and a worker walks in to a new desk.
 4. A permission request makes the worker jump and the screen blink `NEEDS YOU`; finishing while away makes it doze with `zZz`.
 5. Idle workers get up within about a minute, stay on aisles/lanes without crossing desks, and return; sending work brings them back immediately.
-6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** in the strip opens a tab running `omp` (the rail's `agent` prop).
+6. Clicking a worker or occupied desk focuses that agent; every desk shows an old German name and the current task title; hovering a desk shows name, tab, space, title, and status; clicking **Neuen einstellen** asks for a folder, then opens a tab running `omp` there (the rail's `agent` prop); canceling the picker opens nothing.
 7. Optional visual pass: enable `demo: true` on the floor, check all four statuses and three space groups against `preview.png`, then remove the prop.
 
 ### Known false alarms and caveats
