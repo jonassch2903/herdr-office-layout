@@ -22,7 +22,7 @@ One mod folder, `office/mods/office/`, is mounted **three times** by `office/lay
 | `office-rail` (fixed 28 px) | `{role: "rail", demo, agent}` | Active space / tab strip and **Neuen einstellen**; `agent` names the program to start (`"omp"` here) after a folder picker |
 | `office-desks` (`{tab: "active"}`) | pane frame | Herdr renders the tab's panes; each header is the mod with `{role: "pane"}` and host-injected `pane` |
 
-The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:143`). Any truthy role skips the retained room view and 250 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
+The role gate is `if (props()?.role) return;` in `Office.init` (`main.js:148`). Any truthy role skips the retained room view and 50 ms timer; **the floor is the no-role fall-through**. Never add `role: "floor"` — it would skip simulation setup and render without `roomView`.
 
 ```mermaid
 flowchart TD
@@ -30,7 +30,7 @@ flowchart TD
   L --> R[office-rail: role rail]
   L --> P[office-desks: tab active]
   P --> H[pane header: role pane]
-  F --> I[init: seed/state + cx.new(Room) + 250ms timer]
+  F --> I[init: seed/state + cx.new(Room) + 50ms timer]
   I --> A[agents or DEMO] --> G[group agents by project]
   G --> FIT[fit rows/cols, derive k and s] --> GEO[seats, aisles, lanes]
   GEO --> T[tick: walk trips, thoughts, cat, hist, door, minute]
@@ -53,7 +53,7 @@ The **office stats screen** is not part of the retained room: `statsBoard(w, cre
 
 **Retained view:** only the room is a nested `View` (`cx.new(Room, …)`). `Room.render()` calls `room(w, h, {seed, now, doorOpen})` from `art.js`, which draws wall, floor, wall furniture, cooler, plant, and the seasonal window — **not** desks, rugs, labels, workers, cat, the office stats screen, or news. `syncRoom()` JSON-compares `{w, h, seed, at, door}` (`at` floored to the minute) and calls `set_props` only when the key changes.
 
-**Simulation (`tick`, `main.js:207-254`):** a single `cx.timer.every(250, …)` advances at most one walkway leg per walker per tick; every fourth tick (~1 s) rolls new trips and thoughts. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). Every 40th tick (~10 s) it appends the number of busy workers in `this.list` to `hist` for the wall screen. It also expires the cat's petting bubble (`this.pet`). The timer calls `cx.notify()` only when `tick()` reports a real change. Mum uses `MUM_SPOTS` instead of `SPOTS`: both `cooler` entries become `smoke`, a wall spot at the Raucherecke.
+**Simulation (`tick`, `main.js:215-268`):** a single `cx.timer.every(50, …)` advances at most one walkway leg per walker per tick; a one-second clock rolls new trips and thoughts. The fast tick lets each leg start as the previous one ends, so walkers do not stop at corners; renders still happen only when `tick()` reports a change. The cat moves every tick. Trips move through `enter → going → there → back`. Busy agents (`working` or `blocked`) head back at the next tick (while visiting) or next waypoint (while walking). A walker that finds someone standing at its next waypoint waits up to 1.5s with its legs stopped (the cat waits 2s); walkers ignore each other. Every 10s it appends the number of busy workers in `this.list` to `hist` for the wall screen. It also expires the cat's petting bubble (`this.pet`). Mum uses `MUM_SPOTS` instead of `SPOTS`: both `cooler` entries become `smoke`, a wall spot at the Raucherecke.
 
 **Art (`art.js`):** stateless pixel-art library. Sprites are rows of palette letters (`.` transparent); `sprite()` emits one `div` per horizontal color run. All appearance is deterministic: worker looks from `hash(agent.address)`, desk clutter from `hash("desk" + slot) ^ sessionSeed`, room art from a per-view seed. `look(a, { woman: true })` forces long hair or a bun, a skirt and lipstick; `worker()` passes it for `this.mumAddress`. `window_(x, now, seed)` derives day/dusk/night from the hour and adds a season in a clipped 78×64 pane: snow Dec–Feb, petals Mar–May (April rain), a daytime sun Jun–Aug, leaves Sep–Nov, plus 8 December bulbs outside the pane. Seasonal randomness uses its own `rng(seed ^ ((month+1)*0x9e3779b9))`, so the room's `R` sequence is untouched. Wandering, thoughts, cat destinations, and new worker names use unseeded `Math.random()`.
 
@@ -110,7 +110,7 @@ herdr-app shot      # visual spot-check
 
 ### State and errors
 
-- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `n`, `cat`, `list`, `mumAddress`, `names`, `hist`, `histSeeded`, `since`, `lastTurn`, `news`, `newsSeeded`, `blockedCursor`, `pet`. `cat` itself carries `path`, `i`, `until`, `left`, `resting`, `onDesk`, and `watch`.
+- All simulation state lives as mutable fields on the `Office` view: `size`, `seed`, `trips`, `thoughts`, `seats`, `geo`, `known`, `door`, `hover`, `minute`, `rollAt`, `histAt`, `cat`, `list`, `mumAddress`, `names`, `hist`, `histSeeded`, `since`, `lastTurn`, `news`, `newsSeeded`, `blockedCursor`, `pet`. A trip carries `phase`, `path`, `i`, `until`, `spot`, `hurry`, and `hold` (the deadline for standing still at a blocked waypoint). `cat` itself carries `path`, `i`, `until`, `left`, `resting`, `onDesk`, `watch`, and `wait`.
 - `render()` is impure: it sets `demo`, `list`, `mumAddress`, `names`, `seats`, `trips`, `known`, `door`, `since`, `lastTurn`, `news`, and (first demo render) `hist`/`histSeeded` and `newsSeeded`. The queue click advances `blockedCursor`; the cat click sets `pet`. Do not assume a pure render or safe concurrent mutation.
 - No `try`/`catch` or logging. Use optional chaining and defaults: `props() ?? {}`, `SCREEN[status] ?? SCREEN.idle`, `pane?.program?.name ?? "Terminal"`.
 - No dependency injection or service container: import host APIs directly from `gpui-kit`/`gpui-base`/`herdr`, and keep drawing helpers in `./art.js`.
@@ -161,7 +161,7 @@ herdr-app shot      # visual spot-check
 | File | Why it matters |
 | --- | --- |
 | `office/layouts/office.json` | Three-band layout, role wiring, pane frame, theme, preview path |
-| `office/mods/office/main.js` | `Office` view: `fit()` 93–105, `Room` 109–116, `init` 119–146, `path()` 165–184, `tick()` 207–254, `desk()` 306–330, `nameFor()` 334–344, `label()` 346–355, `screen()` 357–376, `statsBoard()` 384–447, `worker()` 450–493, `render()` 495–692 |
+|`office/mods/office/main.js`|`Office` view: `fit()` 97–109, `Room` 113–121, `init` 123–151, `path()` 170–186, `tick()` 215–268, `desk()` 323–348, `nameFor()` 351–362, `label()` 363–372, `screen()` 374–399, `statsBoard()` 401–465, `worker()` 467–510, `render()` 512–709|
 | `office/mods/office/art.js` | Sprite engine 22–33, deterministic looks 45–58, `seated()`/`standing()` 80–103, `cat()` 107, `window_()` 138–196 (seasons), `smokingArea()` 200–210, room 212–251, `SLOT_W`/`RUGS`/`SCREEN` 255–259, `deskLook()`/`clutter()` 262–281 |
 | `office/mods/office/mod.json` | Exactly `{"place":"none"}`; the folder name plus a default-exported `View` is the real contract |
 | `office/mods/office/fonts/PxPlus_IBM_VGA_8x16.ttf` | Auto-loaded pixel font; family string `PxPlus IBM VGA 8x16` in `art.js` |

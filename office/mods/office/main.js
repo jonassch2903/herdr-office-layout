@@ -47,7 +47,11 @@ const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
 // The wall screen is the floor's dashboard: live sessions, completed turns and a short activity
 // strip. `turn` is herdr-core's per-terminal count; the strip samples how many workers are busy.
-const HIST = 24, HIST_TICKS = 40; // one sample every 40 ticks (~10s): four minutes
+const HIST = 24, HIST_MS = 10000; // one sample every 10s: four minutes
+// Walk legs end on a timer, so a coarse tick leaves every corner frozen for up to one period.
+// 50ms keeps the legs moving without rebuilding the floor at frame rate (renders still only
+// happen when something changed). Social rolls stay on a one-second clock.
+const TICK_MS = 50, ROLL_MS = 1000, WAIT_MS = 1500, CAT_WAIT_MS = 2000;
 // Coffee-kitchen lines. Short enough for a 100px bubble; one speaker is picked per spot.
 const SMALL_TALK = [
   "Hast du das Deploy gesehen?",
@@ -127,7 +131,8 @@ export default class Office extends View {
     this.door = 0;
     this.hover = null;
     this.minute = -1;
-    this.n = 0;
+    this.rollAt = 0;     // last wander/thought roll, once a second
+    this.histAt = 0;     // last activity sample, every 10s
     this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false, onDesk: false, watch: null };
     this.list = [];
     this.mumAddress = null; // the first agent on the floor, always Michels Mum
@@ -142,7 +147,7 @@ export default class Office extends View {
     this.pet = 0;        // cat petting bubble until this timestamp
     if (props()?.role) return;
     this.roomView = cx.new(Room, this.roomProps());
-    cx.timer.every(250, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
+    cx.timer.every(TICK_MS, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
   }
 
   roomProps() {
@@ -185,11 +190,12 @@ export default class Office extends View {
 
   off(addr) { return ((hash(addr) % 5) - 2) * Math.round(4 * this.geo.k); }
 
-  // Someone (or the cat) is standing at, or heading for, the spot p: wait a moment.
+  // Someone (or the cat) is standing at the spot p: wait a moment. Walkers heading somewhere are
+  // ignored: two people walking toward each other's next waypoint used to freeze each other.
   crowded(self, p) {
     const near = (q) => q && Math.abs(q.x - p.x) < 12 * this.geo.s && Math.abs(q.y - p.y) < 8 * this.geo.s;
-    if (self !== "cat" && near(this.cat.path?.[this.cat.i])) return true;
-    return Object.entries(this.trips).some(([addr, t]) => addr !== self && t.phase !== "enter" && near(t.path[t.i]));
+    if (self !== "cat" && this.cat.resting && near(this.cat.path?.[this.cat.i])) return true;
+    return Object.entries(this.trips).some(([addr, t]) => addr !== self && t.phase === "there" && near(t.path[t.i]));
   }
 
   seatPlace(addr) { const s = this.seats[addr]; return s && { r: s.row, x: s.x, seat: s.y }; }
@@ -203,35 +209,43 @@ export default class Office extends View {
     return { r: Math.floor(sp.fy * (g.rows + 1)) - 1, x: Math.round(8 + sp.fx * (w - 70)) };
   }
 
-  // Four times a second: walkers turn corners. About once a second: who gets up, thoughts, the cat.
+  // Every 50ms: walkers turn corners; a leg never waits for the next whole tick to start, so the
+  // walk keeps its speed instead of stopping at every corner. Once a second: who gets up,
+  // thoughts, the cat. Every 10s: the activity strip.
   tick() {
     if (!this.geo) return false;
-    const now = Date.now(), tick = this.n++, slow = tick % 4 === 0;
+    const now = Date.now();
     let changed = false;
-    if (tick % HIST_TICKS === 0) {
-      const crew = this.list;
-      this.hist.push(crew.filter(busy).length);
+    if (now - this.histAt >= HIST_MS) {
+      this.histAt = now;
+      this.hist.push(this.list.filter(busy).length);
       if (this.hist.length > HIST) this.hist.shift();
       changed = true;
     }
     const minute = new Date().getMinutes();
     if (minute !== this.minute) { this.minute = minute; changed = true; }
+    const roll = now - this.rollAt >= ROLL_MS;
+    if (roll) this.rollAt = now;
     for (const a of this.list) {
       const t = this.trips[a.address];
       if (t) {
         if (busy(a) && t.phase === "there") this.headBack(a, t, t.path[t.i], now), changed = true;
         else if (busy(a) && t.phase === "going") t.hurry = true;
         if (now < t.until) continue;
-        changed = true;
         if (t.i < t.path.length - 1 && !(t.hurry && t.phase === "going")) {
-          if ((t.wait ?? 0) < 6 && this.crowded(a.address, t.path[t.i + 1])) { t.wait = (t.wait ?? 0) + 1; t.until = now + 250; continue; }
-          t.wait = 0; t.i++; t.until = now + t.path[t.i].ms; continue;
+          if (this.crowded(a.address, t.path[t.i + 1])) {
+            if (!t.hold) { t.hold = now + WAIT_MS; changed = true; } // stop swinging the legs on the spot
+            if (now < t.hold) { t.until = now + TICK_MS; continue; }
+          }
+          t.hold = 0; t.i++; t.until = now + t.path[t.i].ms; changed = true; continue;
         }
         const at = t.path[t.i];
+        t.hold = 0;
+        changed = true;
         if (t.phase === "going" && !t.hurry) Object.assign(t, { phase: "there", until: now + 3000 + Math.random() * 8000 });
         else if (t.phase === "back") delete this.trips[a.address];
         else this.headBack(a, t, at, now);
-      } else if (slow && !busy(a) && Math.random() < (a.status === "done" ? 0.015 : 0.035) * (this.demo ? 4 : 1)) {
+      } else if (roll && !busy(a) && Math.random() < (a.status === "done" ? 0.015 : 0.035) * (this.demo ? 4 : 1)) {
         const others = this.list.filter((o) => o.address !== a.address && !this.trips[o.address]);
         const spots = a.address === this.mumAddress ? MUM_SPOTS : SPOTS;
         let key = spots[Math.floor(Math.random() * spots.length)];
@@ -239,9 +253,9 @@ export default class Office extends View {
         const spot = { key, other: key === "chat" ? others[Math.floor(Math.random() * others.length)].address : null,
           jx: Math.random() * 30 - 15, fx: Math.random(), fy: Math.random() };
         const path = this.path(this.seatPlace(a.address), this.spotPlace(spot), WALK, this.off(a.address));
-        this.trips[a.address] = { phase: "going", spot, path, i: 0, until: now + path[0].ms };
+        this.trips[a.address] = { phase: "going", spot, path, i: 0, until: now + path[0].ms, hold: 0 };
         changed = true;
-      } else if (slow && !this.thoughts[a.address] && Math.random() < (busy(a) ? 0.006 : 0.025)) {
+      } else if (roll && !this.thoughts[a.address] && Math.random() < (busy(a) ? 0.006 : 0.025)) {
         this.thoughts[a.address] = { sym: THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)], until: now + 2500 + Math.random() * 3000 };
         changed = true;
       }
@@ -255,7 +269,7 @@ export default class Office extends View {
 
   headBack(a, t, at, now) {
     const path = this.path({ r: at.r, x: at.x }, this.seatPlace(a.address), WALK, this.off(a.address));
-    Object.assign(t, { phase: "back", path, i: 0, until: now + path[0].ms, hurry: false });
+    Object.assign(t, { phase: "back", path, i: 0, until: now + path[0].ms, hurry: false, hold: 0 });
   }
 
   // The sign's third line. Keep only a short tail; the newest event wins.
@@ -274,7 +288,10 @@ export default class Office extends View {
     }
     if (now < c.until) return false;
     if (c.path && c.i < c.path.length - 1) {
-      if ((c.wait ?? 0) < 8 && this.crowded("cat", c.path[c.i + 1])) { c.wait = (c.wait ?? 0) + 1; c.until = now + 250; return false; }
+      if (this.crowded("cat", c.path[c.i + 1])) {
+        if (!c.wait) c.wait = now + CAT_WAIT_MS;
+        if (now < c.wait) { c.until = now + TICK_MS; return false; }
+      }
       c.wait = 0; c.i++; c.until = now + c.path[c.i].ms; c.left = c.path[c.i].left; return true; }
     const at = c.path?.[c.i] ?? { r: -1, x: Math.round(this.size.width / 3) };
     if (c.path && !c.resting) {
@@ -463,7 +480,7 @@ export default class Office extends View {
       const item = there && t.spot.key === "cooler" ? "cup"
         : there && t.spot.key === "smoke" ? "cig"
         : there && t.spot.key.startsWith("shelf") ? "book" : null;
-      body = standing(lk, s, facing, !there && !enter, item, id);
+      body = standing(lk, s, facing, !there && !enter && !t.hold, item, id);
     }
     const th = this.thoughts[a.address];
     const there = t?.phase === "there";
@@ -636,7 +653,7 @@ export default class Office extends View {
       if (this.known && !this.known.has(a.address)) {
         const door = this.spotPlace({ key: "door", jx: 0 });
         const path = [{ x: door.x, y: this.laneY(-1), r: -1, ms: 16 }, ...this.path(door, this.seatPlace(a.address), WALK, this.off(a.address))];
-        this.trips[a.address] = { phase: "enter", spot: { key: "door" }, path, i: 0, until: ts + 700 };
+        this.trips[a.address] = { phase: "enter", spot: { key: "door" }, path, i: 0, until: ts + 700, hold: 0 };
         this.door = ts + 4000;
       }
     }

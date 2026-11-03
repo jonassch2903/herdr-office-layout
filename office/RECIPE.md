@@ -97,7 +97,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - **Walkways**: the corridor along the wall (walker top at `WALL-40`), the aisle behind each row
   (`row top + 128k`), a lane past each end of the rows and one between each pair of space groups.
   Everyone keeps to their own line, up to ±8k off the middle, and waits (up to 1.5s, the cat 2s)
-  before stepping where someone else stands. A walk is straight legs between them:
+  before stepping where someone else is standing. Walkers do not block each other, and a waiting
+  worker stands with still legs instead of walking on the spot. A walk is straight legs between them:
   out of the chair into the aisle, along to the nearer end lane, up or down it, along to the spot.
   Speed 0.11 px/ms (cat 0.07). Workers face the way they walk and face the wall at wall spots.
 - **Arrivals**: a new agent's worker appears in the doorway, the door opens for 4s, and they walk
@@ -172,9 +173,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   a skirt and lipstick.
 - `mods/office/main.js`: one mod, three roles by `props().role`. The room (wall, floor,
   furniture) is a retained nested view (`cx.new`), rebuilt only when the size, the minute or the
-  door changes. A 250ms timer advances walks (one
-  straight leg at a time) and, every fourth tick, rolls for new walks, thoughts and the cat. It
-  calls `cx.notify()` only when something changed. Every movement is a native
+  door changes. A 50ms timer advances walks (one straight leg at a time), so legs start at their
+  corner instead of waiting for a coarse tick; once a second it rolls for new walks, thoughts and
+  the cat. It calls `cx.notify()` only when something changed. Every movement is a native
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
   groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`. The wall
   office screen is rebuilt by `render()` from `agents()` and `terminals()` for every agent on the
