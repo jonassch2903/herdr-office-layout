@@ -59,7 +59,7 @@ A space on another machine skips the local picker and starts in that space's own
 - Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab,
   project, space, title and status.
 - Each project gets its own group of desks on a coloured rug, with its name on a tag: a space
-  someone named, or else the folder the agent's terminal works in.
+  someone named, or else the live folder the agent works in.
 - Only the desks in use are drawn: one per agent, one row up to four agents, more rows when they
   fit better. Everything scales with the agent count and workers stay crisp.
 - The wood strip is also the tab bar: every tab of the active space is a chip with its program

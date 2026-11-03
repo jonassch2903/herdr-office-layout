@@ -39,7 +39,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      shows the newest event and nothing older.
    - **Desks**: slots of 170×190 at scale k, one per agent: one row up to four agents (more
      rows only when they fit better), one group of columns per project (a space someone named,
-     else the folder the agent's terminal works in), groups 60k apart, centred, starting `40k`
+     else the live folder of the agent's pane), groups 60k apart, centred, starting `40k`
      below the wall. Each group sits on a solid rug (a colour per project, never the same as its
      neighbour, with an inner border) sized to its own desks, with the project name on a tag at
      its top-left corner. An empty office shows no desks. A slot holds a monitor
@@ -114,9 +114,12 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   occupied desk, below the name, is what the agent is working on: `a.title`, the terminal title
   OMP already reports, minus its `π >` or spinner/icon prefix (or the tab name when the title is
   only a shell path or program name), wrapped to the slot width so the whole title stays readable.
-- **Projects**: desks are grouped by project: a space someone named, else the folder the agent's
-  terminal works in, whose last path part names the rug. Agents in the same folder share a rug;
-  an agent with no folder falls back to its space. Windows paths compare case-insensitively.
+- **Projects**: desks are grouped by project: a space someone named, else the agent pane's live
+  folder (`panes()[].cwd`), whose last path part names the rug. The live folder follows a shell
+  or agent that changes directory (omp switches projects without changing its process cwd, which
+  is all `terminals()[].cwd` reports). Agents in the same folder share a rug; an agent with no
+  pane folder falls back to its terminal's, then to its space. Windows paths compare
+  case-insensitively.
 - **Office stats**: the wall screen covers every agent on the floor, not just OMP: it counts
   every agent in `crew` (`list`), sums `turn` for every terminal matched by address, shows
   working / needs you / done / idle counts, and plots how many workers were busy over the last
@@ -185,7 +188,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   corner instead of waiting for a coarse tick; once a second it rolls for new walks, thoughts and
   the cat. It calls `cx.notify()` only when something changed. Every movement is a native
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
-  groups come from `spaces()` (a named space) and the terminal's `cwd` in `terminals()`. The wall
+  groups come from `spaces()` (a named space) and the agent pane's live `cwd` in `panes()`. The wall
   office screen is rebuilt by `render()` from `agents()` and `terminals()` for every agent on the
   floor; `tick()` samples the busy-worker count into `hist` every ~10s. `render()` also maintains
   the needs-you cursor (`blockedCursor`), the news feed (`pushNews` into `news`, fed by `since`
@@ -216,7 +219,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `smokingArea()` (sign, ashtray at x ≈ 120) are hand-matched: move them together. The first agent
   is `list[0]`, i.e. the first desk; if the host order changes, the name moves to the new first
   agent and the old one gets a normal German name back.
-- A project is a named space, else the terminal's working folder: an agent started in `~` (for
+- A project is a named space, else the pane's live working folder: an agent started in `~` (for
   example bare `omp`) shares the home rug with every other home-folder agent. Start it in its
   project folder (or use **Neuen einstellen**) for a rug of its own.
 - Desk titles wrap instead of truncating, so a title longer than the 60-unit aisle reaches into the

@@ -4,7 +4,7 @@ import { agents, spaces, panes, props, run, setAgentOrder, knownAgents, terminal
 import { ink, WALL, SLOT_W, SLOT_H, SCREEN, CATS, RUGS, r, icon, txt, hash, rng, pick, look, deskLook, clutter, seated, standing, cat, room } from "./art.js";
 
 // A pixel-art office: every agent is a little worker at a desk, and each project (a space
-// someone named, else the folder the agent's terminal works in) gets its own group of desks on
+// someone named, else the live folder of the agent's pane) gets its own group of desks on
 // a rug. Idle workers wander, and everyone (the cat too) keeps to the walkways:
 // the corridor along the wall, the aisle behind each row of desks, and the lanes past both ends
 // of the rows and between the groups.
@@ -83,7 +83,7 @@ const taskOf = (a) => {
   const telling = t && t !== prog && !/^[~/]|^[A-Za-z]:\\/.test(t) && !t.includes("@") && t.toLowerCase() !== a.program?.key;
   return telling ? t : "";
 };
-// A project is a space someone named, else the folder the agent's terminal works in: its last
+// A project is a space someone named, else the live folder of the agent's pane: its last
 // path part names the rug. Windows paths compare case-insensitively.
 const dirOf = (p) => (p ?? "").replace(/[\\/]+$/, "");
 const dirName = (p) => dirOf(p).split(/[\\/]/).pop() ?? "";
@@ -635,13 +635,17 @@ export default class Office extends View {
     const { width: w, height: h } = this.size, now = new Date(), hour = now.getHours();
     const night = hour >= 19 || hour < 6;
     const stats = this.statsBoard(w, crew, turns);
-    // One group of desks per project: a space someone named, else the folder the agent's
-    // terminal works in. Agents of one project share a rug even when their spaces differ.
-    const cwdOf = new Map(terms.map((t) => [t.address, t.cwd]));
+    // One group of desks per project: a space someone named, else the live folder of the
+    // agent's pane. Agents of one project share a rug even when their spaces differ.
+    // A pane's cwd is live (shell integration reports it), unlike a terminal's launch folder:
+    // omp switches projects without changing its process cwd, so panes() is the project here.
+    const paneCwd = new Map(p.demo ? [] : panes().map((x) => [x.pane, x.cwd]));
+    const termCwd = new Map(terms.map((t) => [t.address, t.cwd]));
+    const cwdOf = (a) => paneCwd.get(a.pane) ?? termCwd.get(a.address);
     const spaceOf = new Map(p.demo ? [] : spaces().map((s) => [s.id, s]));
     const projectOf = (a) => {
       if (p.demo) return { key: `space:${a.space}`, name: a.space_name };
-      const space = spaceOf.get(a.space), cwd = cwdOf.get(a.address), dir = dirName(cwd);
+      const space = spaceOf.get(a.space), cwd = cwdOf(a), dir = dirName(cwd);
       if (space?.named) return { key: `space:${a.space}`, name: space.name || a.space_name };
       if (!cwd) return { key: `space:${a.space}`, name: a.space_name || "" };
       return {
