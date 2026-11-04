@@ -16,31 +16,40 @@ is e.g. `C:\Users\<you>\.config\herdr-app`).
 
 ### With an AI agent
 
-Open your agent (Claude Code, Codex, omp, …) in this repository and paste this prompt:
+Paste this prompt into your agent (Claude Code, Codex, omp, …). No local checkout needed: the
+agent downloads the repository itself and removes the temporary copy when done.
 
 ```text
-Install the Office layout from this repository into Herdr.
+Install the Office layout from https://github.com/zuccs/herdr-office-layout into Herdr.
 
 1. Resolve Herdr's home: use $HERDR_APP_HOME if set, otherwise ~/.config/herdr-app.
    `herdr-app --help` prints it as "Home: ...". If that folder does not exist, stop
    and tell me instead of creating it (Herdr makes it on first launch).
-2. Copy office/layouts/office.json and office/layouts/office.svg into <home>/layouts/,
-   and the whole office/mods/office/ folder into <home>/mods/office/. The mod folder
-   must keep the name "office" and contain mod.json, main.js, art.js and fonts/.
-   Replace existing copies at exactly those paths; change nothing else in the Herdr
-   home.
-3. Switch to the layout: herdr-app do layout.switch --name office
-4. Verify with herdr-app status: it must report no errors. Do not run
+2. Fetch the repository into a temporary folder: `git clone --depth 1
+   https://github.com/zuccs/herdr-office-layout.git <tmp>`, or without git download
+   and unpack https://codeload.github.com/zuccs/herdr-office-layout/zip/refs/heads/main.
+   Keep it outside the Herdr home.
+3. Copy <tmp>/office/layouts/office.json and <tmp>/office/layouts/office.svg into
+   <home>/layouts/, and the whole <tmp>/office/mods/office/ folder into
+   <home>/mods/office/. The mod folder must keep the name "office" and contain
+   mod.json, main.js, art.js and fonts/. Replace existing copies at exactly those
+   paths; change nothing else in the Herdr home. Delete the temporary copy afterwards.
+4. Switch to the layout: herdr-app do layout.switch --name office
+5. Verify with herdr-app status: it must report no errors. Do not run
    `herdr-app check`; it panics on this mod's animations and proves nothing. If
    office was already active and the old version is still on screen, switch away and
    back (ctrl-shift-l) and re-run the switch command.
-5. Report which files you copied, the switch result and the status output.
+6. Report which files you copied, the switch result and the status output.
 ```
 
-The agent needs no build step, dependencies or network access: the mod is plain ES modules
-plus the bundled pixel font.
+Installing needs no build step and no dependencies: the mod is plain ES modules plus the
+bundled pixel font. The agent only fetches the repository.
 
 ### By hand
+
+Get the files first, either with `git clone --depth 1
+https://github.com/zuccs/herdr-office-layout.git` or from
+https://github.com/zuccs/herdr-office-layout/archive/refs/heads/main.zip, then:
 
 1. Copy `office/layouts/*` into `~/.config/herdr-app/layouts/`.
 2. Copy `office/mods/office` into `~/.config/herdr-app/mods/`.
