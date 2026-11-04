@@ -9,7 +9,38 @@ to the smoking corner instead. See [office/RECIPE.md](office/RECIPE.md) for how 
 
 ## Installation
 
-Ask your agent to add this layout (it reads every file first), or by hand:
+Herdr reads layouts from `<home>/layouts/` and mods from `<home>/mods/`, where `<home>` is
+`HERDR_APP_HOME` if set, otherwise `~/.config/herdr-app`. `herdr-app --help` prints it as
+`Home: …` and resolves it for your platform (on Windows `~` is your user profile, so the path
+is e.g. `C:\Users\<you>\.config\herdr-app`).
+
+### With an AI agent
+
+Open your agent (Claude Code, Codex, omp, …) in this repository and paste this prompt:
+
+```text
+Install the Office layout from this repository into Herdr.
+
+1. Resolve Herdr's home: use $HERDR_APP_HOME if set, otherwise ~/.config/herdr-app.
+   `herdr-app --help` prints it as "Home: ...". If that folder does not exist, stop
+   and tell me instead of creating it (Herdr makes it on first launch).
+2. Copy office/layouts/office.json and office/layouts/office.svg into <home>/layouts/,
+   and the whole office/mods/office/ folder into <home>/mods/office/. The mod folder
+   must keep the name "office" and contain mod.json, main.js, art.js and fonts/.
+   Replace existing copies at exactly those paths; change nothing else in the Herdr
+   home.
+3. Switch to the layout: herdr-app do layout.switch --name office
+4. Verify with herdr-app status: it must report no errors. Do not run
+   `herdr-app check`; it panics on this mod's animations and proves nothing. If
+   office was already active and the old version is still on screen, switch away and
+   back (ctrl-shift-l) and re-run the switch command.
+5. Report which files you copied, the switch result and the status output.
+```
+
+The agent needs no build step, dependencies or network access: the mod is plain ES modules
+plus the bundled pixel font.
+
+### By hand
 
 1. Copy `office/layouts/*` into `~/.config/herdr-app/layouts/`.
 2. Copy `office/mods/office` into `~/.config/herdr-app/mods/`.

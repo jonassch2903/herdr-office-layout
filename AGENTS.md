@@ -69,7 +69,7 @@ The **office stats screen** is not part of the retained room: `statsBoard(w, cre
 | `office/` | `RECIPE.md` (behavior/architecture spec) and `preview.png` (demo-mode screenshot) |
 | repository root | `README.md`, `LICENSE` (MIT), `.gitignore` |
 
-The package is installed by copying them to `~/.config/herdr-app/layouts/` and `~/.config/herdr-app/mods/office/`. The README documents Unix paths; on Windows use the equivalent Herdr home (not documented in this repo).
+The package is installed by copying them to `<home>/layouts/` and `<home>/mods/office/`, where `<home>` is `HERDR_APP_HOME` if set, otherwise `~/.config/herdr-app` (`herdr-app --help` prints the resolved path; on Windows `~` is the user profile, so the path is e.g. `C:\Users\<you>\.config\herdr-app`).
 
 ## Development Commands
 
