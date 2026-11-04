@@ -20,14 +20,14 @@ Paste this prompt into your agent (Claude Code, Codex, omp, …). No local check
 agent downloads the repository itself and removes the temporary copy when done.
 
 ```text
-Install the Office layout from https://github.com/zuccs/herdr-office-layout into Herdr.
+Install the Office layout from https://github.com/jonassch2903/herdr-office-layout into Herdr.
 
 1. Resolve Herdr's home: use $HERDR_APP_HOME if set, otherwise ~/.config/herdr-app.
    `herdr-app --help` prints it as "Home: ...". If that folder does not exist, stop
    and tell me instead of creating it (Herdr makes it on first launch).
 2. Fetch the repository into a temporary folder: `git clone --depth 1
-   https://github.com/zuccs/herdr-office-layout.git <tmp>`, or without git download
-   and unpack https://codeload.github.com/zuccs/herdr-office-layout/zip/refs/heads/main.
+   https://github.com/jonassch2903/herdr-office-layout.git <tmp>`, or without git download
+   and unpack https://codeload.github.com/jonassch2903/herdr-office-layout/zip/refs/heads/main.
    Keep it outside the Herdr home.
 3. Copy <tmp>/office/layouts/office.json and <tmp>/office/layouts/office.svg into
    <home>/layouts/, and the whole <tmp>/office/mods/office/ folder into
@@ -48,8 +48,8 @@ bundled pixel font. The agent only fetches the repository.
 ### By hand
 
 Get the files first, either with `git clone --depth 1
-https://github.com/zuccs/herdr-office-layout.git` or from
-https://github.com/zuccs/herdr-office-layout/archive/refs/heads/main.zip, then:
+https://github.com/jonassch2903/herdr-office-layout.git` or from
+https://github.com/jonassch2903/herdr-office-layout/archive/refs/heads/main.zip, then:
 
 1. Copy `office/layouts/*` into `~/.config/herdr-app/layouts/`.
 2. Copy `office/mods/office` into `~/.config/herdr-app/mods/`.
