@@ -37,18 +37,25 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
    - **Sign**, top-left: white card, 3px `#6b3f1f` border, `THE OFFICE` (16px) over
      `N on the clock` (12px). When there is floor news, a third line (10px, 92 wide, wrapped)
      shows the newest event and nothing older.
-   - **Desks**: slots of 170×190 at scale k, one per agent: one row up to four agents (more
-     rows only when they fit better), one group of columns per project (a space someone named,
-     else the live folder of the agent's pane), groups 60k apart, centred, starting `40k`
-     below the wall. Each group sits on a solid rug (a colour per project, never the same as its
-     neighbour, with an inner border) sized to its own desks, with the project name on a tag at
-     its top-left corner. An empty office shows no desks. A slot holds a monitor
+   - **Desks**: slots of 170×190 at scale k, one per agent (or Shell-o-mat, below): one row up
+     to four slots (more rows only when they fit better), one group of columns per project (a
+     space someone named, else the live folder of the pane), groups 60k apart, centred, starting
+     `40k` below the wall. Each group sits on a solid rug (a colour per project, never the same as
+     its neighbour, with an inner border) sized to its own slots, with the project name on a tag
+     at its top-left corner. An empty office shows no desks. A slot holds a monitor
      (66×44 `#2b2f3a`, 54×34 screen), a desk
      (`#f0dcb0` top, `#d4b27c` front, legs), keyboard, mug, desk lamp, a PC tower (light or dark)
      and one random piece of clutter (papers, plant, cactus, photo, rubber duck, or nothing). The
      worker's program icon and old German given name (12px) sit 130 down, with the current task
      (the agent's terminal title, 10px, wrapped across the slot width) on the lines below. The rest
      of the slot, 130 to 190, is the aisle.
+   - **Shell-o-mat**: a tab whose panes have no agent gets no desk but a command vending machine
+     on its project's rug, also in a 170×190 slot: a 92×108 dark-green cabinet with a cream `SHELL`
+     marquee, a green screen showing `>` and a blinking `_`, three small buttons and a big red
+     button, a coin slot, a paper tape curling out, a mug and a stack of manuals beside it. The
+     tab's program icon and `Tab <name>` (12px) sit 130 down, with `Shell-o-mat` (10px) below.
+     A small LED on the marquee blinks when that tab is the shown one in its space. Clicking the
+     machine runs `tab.select`. A project with only shell tabs gets its own rug and tag.
    - **Workers**: pixel sprites at `s` screen px per art pixel, `s` in half-pixel steps and
      `k = s / 3`, so desks and workers always scale together. Seated (16×20, from
      behind, in a `#3d4454` office chair) or standing (12×17, front or back view, legs swinging).
@@ -115,16 +122,18 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   occupied desk, below the name, is what the agent is working on: `a.title`, the terminal title
   OMP already reports, minus its `π >` or spinner/icon prefix (or the tab name when the title is
   only a shell path or program name), wrapped to the slot width so the whole title stays readable.
-- **Projects**: desks are grouped by project: a space someone named, else the agent pane's live
-  folder (`panes()[].cwd`), whose last path part names the rug. The live folder follows a shell
-  or agent that changes directory (omp switches projects without changing its process cwd, which
-  is all `terminals()[].cwd` reports). Agents in the same folder share a rug; an agent with no
-  pane folder falls back to its terminal's, then to its space. Windows paths compare
+- **Projects**: desks and shell stations are grouped by project: a space someone named, else the
+  pane's live folder (`panes()[].cwd`), whose last path part names the rug. The live folder
+  follows a shell or agent that changes directory (omp switches projects without changing its
+  process cwd, which is all `terminals()[].cwd` reports). Agents and shell tabs in the same folder
+  share a rug; an agent with no pane folder falls back to its terminal's, then to its space, and a
+  shell tab falls back to its first pane's folder, then to its space. Windows paths compare
   case-insensitively.
 - **Office stats**: the wall screen covers every agent on the floor, not just OMP: it counts
   every agent in `crew` (`list`), sums `turn` for every terminal matched by address, shows
   working / needs you / done / idle counts, and plots how many workers were busy over the last
-  four minutes, sampled every ~10s into `hist` (24 bars). When nobody is blocked the bottom row
+  four minutes, sampled every ~10s into `hist` (24 bars); Shell-o-mats are not agents, so they
+  add no sessions or blocked rows. When nobody is blocked the bottom row
   reads `ACTIVITY · 4 MIN`. It hangs between the right bookshelf and the window, or left of the
   shelves when that gap is narrower; it is drawn each render over the retained room, dims with the night
   overlay, and is left out below about 1290px wide.
@@ -167,11 +176,14 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `run("tab.new", { space, folder })` with the active space's folder and no `argv`, so Herdr
   starts its default shell there for the project's commands; there is no picker and no agent.
   An empty space folder leaves Herdr's default (the focused terminal's folder).
+  Clicking a **Shell-o-mat** runs `tab.select` with its tab id, so the floor doubles as a tab
+  picker per project; its tag reads `Tab <name>` over `Shell-o-mat`.
   Hovering a desk shows a yellow sticky note: name, tab, project, space, title, status. Desk
   order is the project-grouped order and is passed to `setAgentOrder`.
-- **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns for its `n` agents, with
-  `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win only when they
-  make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
+- **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns for its `n` slots (an
+  agent desk or a Shell-o-mat), with
+  `k = min(1, (w-200)/(cols·170 + gaps·60), (h-150)/(rows·190+40))`; more rows win only when
+  they make k at least 0.08 bigger. Then `s = max(1, floor(6k)/2)` and `k = s/3`.
 
 ## Built from
 
@@ -192,9 +204,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   corner instead of waiting for a coarse tick; once a second it rolls for new walks, thoughts and
   the cat. It calls `cx.notify()` only when something changed. Every movement is a native
   `.transition("left"/"top")`. Bobbing, legs, blinking and `zZz` are native `loop`/`frames`. Desk
-  groups come from `spaces()` (a named space) and the agent pane's live `cwd` in `panes()`. The wall
-  office screen is rebuilt by `render()` from `agents()` and `terminals()` for every agent on the
-  floor; `tick()` samples the busy-worker count into `hist` every ~10s. `render()` also maintains
+  groups come from `spaces()` (a named space) and the pane's live `cwd` in `panes()`. A tab with
+  panes but no agent adds a Shell-o-mat to its project's group instead of a desk; its screen
+  cursor uses `frames` and its marquee LED uses `loop`. The wall office screen is rebuilt by `render()` from
+  `agents()` and `terminals()` for every agent on the floor; `tick()` samples the busy-worker count
+  into `hist` every ~10s. `render()` also maintains
   the needs-you cursor (`blockedCursor`), the news feed (`pushNews` into `news`, fed by `since`
   and `lastTurn`), and the cat's `watch`; `moveCat()` steers it to blocked desks and `tick()`
   expires the petting bubble (`pet`). `SMALL_TALK` lines are chosen per stay in `worker()`.
@@ -204,8 +218,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, shows three inert sample tabs
   (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire and
-  shell buttons; the stats queue is display-only, but the cat can still be petted. It also
-  seeds `Neuer Kollege: Dietrich`. The preview was taken that way.
+  shell buttons; it draws no Shell-o-mats, because those sample tabs are not real, and the stats
+  queue is display-only, but the cat can still be petted. It also seeds `Neuer Kollege: Dietrich`.
+  The preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
   `run("agent.focus")`, `run("tab.new")`, `run("tab.select")`, `run("tab.close")`,
   `run("tab.prev")`, `run("tab.next")` and `setAgentOrder`. No network, no `exec`, no files
@@ -266,6 +281,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   canceling opens nothing; an empty office shows no desks.
 - Clicking **Shell** opens a plain terminal tab in the active space's folder, with no picker and
   no agent; in demo mode it does nothing.
+- Every terminal tab without an agent has a Shell-o-mat on its project's rug, labelled
+  `Tab <name>`; clicking it shows that tab, and a project with only shell tabs has its own rug.
 - The wall screen shows all sessions and turns on the floor (OMP or not), working / needs you /
   done / idle counts, and its activity strip fills over four minutes; starting or finishing any
   agent updates it. With a blocked worker its bottom row blinks `NEEDS YOU` with that worker's

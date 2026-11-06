@@ -379,6 +379,50 @@ export default class Office extends View {
         .child(txt(task, sub, "#5f4a38").w(q(SLOT_W) - q(12)).whitespace_normal().text_center())));
   }
 
+  // A tab without an agent is not a person, so it does not get a desk: it gets a Shell-o-mat,
+  // a vending machine that dispenses commands, standing on its project's rug. The screen
+  // blinks a prompt, the tag below names the tab, and clicking it shows that tab.
+  station(sh, x, y, k, night) {
+    const q = (v) => Math.round(v * k), R2 = (x, y, w, h, c) => r(q(x), q(y), q(w), q(h), c);
+    const fs = Math.max(8, q(12)), tiny = Math.max(8, q(10)), glow = "#7ee0a0";
+    const screen = R2(52, 36, 76, 38, "#0f2a20").border(2).border_color("#2b2f3a")
+      .child(h_flex().absolute().left(q(5)).top(q(4)).items_center()
+        .child(txt(">", fs, glow))
+        .child(txt("_", fs, glow).id(`shell-${sh.id}-cursor`).frames(["_", " ", "_"], 600)))
+      .child(R2(7, 26, 34, 2, "#2f6b4f"))
+      .child(R2(7, 30, 52, 2, "#2f6b4f"))
+      .child(R2(7, 34, 24, 2, "#2f6b4f"));
+    return div().absolute().left(x).top(y).w(q(SLOT_W)).h(q(130))
+      .child(R2(44, 10, 92, 108, "#3f5a50").border(3).border_color("#6b3f1f"))
+      .child(R2(50, 118, 12, 6, "#2b2f3a")).child(R2(118, 118, 12, 6, "#2b2f3a"))
+      .child(R2(50, 16, 80, 14, "#f0dcb0").border(2).border_color("#6b3f1f").flex().items_center().justify_center()
+        .child(txt("SHELL", tiny, ink)))
+      .child(R2(124, 19, 4, 4, sh.active ? "#5ee08a" : "#5b5b66")
+        .when(sh.active, (e) => e.id(`shell-${sh.id}-live`).loop("opacity", { from: 0.25, to: 1, period: 900 })))
+      .when(night, (e) => e.child(R2(48, 32, 84, 46, "#7ee0a00f")))
+      .child(screen)
+      .child(R2(56, 80, 20, 2, "#2b2f3a")).child(R2(62, 76, 4, 4, "#e6c76a"))
+      .children([0, 1, 2].map((i) => R2(58 + i * 13, 86, 9, 5, ["#a8322a", "#d79a3a", "#5aa064"][i])
+        .border(1).border_color("#2b2f3a")))
+      .child(R2(110, 82, 16, 12, "#a8322a").border(2).border_color("#6b3f1f").child(R2(3, 2, 5, 3, "#e07a6a")))
+      .child(R2(54, 100, 72, 6, "#2b2f3a"))
+      .child(R2(56, 104, 40, 4, "#fbfbf6")).child(R2(94, 104, 4, 14, "#fbfbf6"))
+      .child(R2(140, 96, 12, 10, "#f4f4f0").border(1).border_color("#9a9aa6")).child(R2(152, 99, 4, 5, "#f4f4f0"))
+      .child(R2(138, 44, 20, 5, "#7a2f2f")).child(R2(140, 39, 20, 5, "#2f5a7a")).child(R2(136, 34, 20, 5, "#8a6a2a"))
+      .id(`station-${sh.id}`).cursor_pointer()
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click(() => { if (!this.demo) run("tab.select", { id: sh.id }); });
+  }
+
+  stationLabel(sh, x, y, k) {
+    const q = (v) => Math.round(v * k), fs = Math.max(8, q(12)), sub = Math.max(8, q(10));
+    return v_flex().absolute().left(x).top(y + q(130)).w(q(SLOT_W)).items_center().gap(q(2))
+      .child(h_flex().gap(q(6)).items_center()
+        .child(icon(sh.program, q(14)))
+        .child(txt(`Tab ${sh.name}`, fs, sh.active ? "#fff8e1" : ink).max_w(q(SLOT_W) - q(30)).truncate()))
+      .child(txt("Shell-o-mat", sub, "#5f4a38"));
+  }
+
   screen(a, k) {
     const q = (v) => Math.round(v * k);
     const s = r(q(6), q(5), q(54), q(34), SCREEN[a.status] ?? SCREEN.idle);
@@ -651,28 +695,56 @@ export default class Office extends View {
     // agent's pane. Agents of one project share a rug even when their spaces differ.
     // A pane's cwd is live (shell integration reports it), unlike a terminal's launch folder:
     // omp switches projects without changing its process cwd, so panes() is the project here.
-    const paneCwd = new Map(p.demo ? [] : panes().map((x) => [x.pane, x.cwd]));
+    const allPanes = p.demo ? [] : panes();
+    const panesByTab = new Map();
+    for (const x of allPanes) {
+      const arr = panesByTab.get(x.tab);
+      if (arr) arr.push(x); else panesByTab.set(x.tab, [x]);
+    }
+    const paneCwd = new Map(allPanes.map((x) => [x.pane, x.cwd]));
     const termCwd = new Map(terms.map((t) => [t.address, t.cwd]));
     const cwdOf = (a) => paneCwd.get(a.pane) ?? termCwd.get(a.address);
-    const spaceOf = new Map(p.demo ? [] : spaces().map((s) => [s.id, s]));
-    const projectOf = (a) => {
-      if (p.demo) return { key: `space:${a.space}`, name: a.space_name };
-      const space = spaceOf.get(a.space), cwd = cwdOf(a), dir = dirName(cwd);
-      if (space?.named) return { key: `space:${a.space}`, name: space.name || a.space_name };
-      if (!cwd) return { key: `space:${a.space}`, name: a.space_name || "" };
+    const allSpaces = p.demo ? [] : spaces();
+    const spaceOf = new Map(allSpaces.map((s) => [s.id, s]));
+    const projectOf = (spaceId, cwd, fallback) => {
+      if (p.demo) return { key: `space:${spaceId}`, name: fallback };
+      const space = spaceOf.get(spaceId), dir = dirName(cwd);
+      if (space?.named) return { key: `space:${spaceId}`, name: space.name || fallback };
+      if (!cwd) return { key: `space:${spaceId}`, name: fallback || "" };
       return {
         key: `dir:${space?.machine ?? ""}:${dirKey(cwd)}`,
-        name: sameDir(cwd, space?.folder) ? (a.space_name || dir) : (dir || a.space_name || ""),
+        name: sameDir(cwd, space?.folder) ? (fallback || dir) : (dir || fallback || ""),
       };
     };
-    const groups = [], byKey = new Map();
-    for (const a of list) {
-      const { key, name } = projectOf(a);
-      let g = byKey.get(key);
-      if (!g) { g = { key, space: a.space, name, agents: [] }; byKey.set(key, g); groups.push(g); }
-      g.agents.push(a);
+    // A tab with panes but no agent is a shell window. It gets a Shell-o-mat on its project's
+    // rug, so a plain terminal is as easy to place as a worker is. Agent tabs already have a desk.
+    const agentTabs = new Set(list.map((a) => a.tab).filter(Boolean));
+    const shells = [];
+    for (const sp of allSpaces) {
+      for (const t of sp.tabs) {
+        const ps = panesByTab.get(t.id);
+        if (!ps?.length || agentTabs.has(t.id) || ps.some((x) => x.program?.agent)) continue;
+        shells.push({
+          id: t.id, name: t.name, active: t.active, space: sp.id, spaceName: sp.name,
+          cwd: ps.find((x) => x.cwd)?.cwd, program: ps[0].program,
+        });
+      }
     }
-    if (!groups.length) groups.push({ key: "", space: null, name: "", agents: [] });
+    const groups = [], byKey = new Map();
+    const groupFor = (key, spaceId, name) => {
+      let g = byKey.get(key);
+      if (!g) { g = { key, space: spaceId, name, agents: [], shells: [] }; byKey.set(key, g); groups.push(g); }
+      return g;
+    };
+    for (const a of list) {
+      const { key, name } = projectOf(a.space, cwdOf(a), a.space_name);
+      groupFor(key, a.space, name).agents.push(a);
+    }
+    for (const sh of shells) {
+      const { key, name } = projectOf(sh.space, sh.cwd, sh.spaceName);
+      groupFor(key, sh.space, name).shells.push(sh);
+    }
+    if (!groups.length) groups.push({ key: "", space: null, name: "", agents: [], shells: [] });
     // agent.next / agent.prev follow the desks as drawn, not the host's space order.
     if (!p.demo) setAgentOrder(groups.flatMap((g) => g.agents.map((a) => a.address)));
     const projectName = new Map(groups.flatMap((g) => g.agents.map((a) => [a.address, g.name])));
@@ -681,16 +753,22 @@ export default class Office extends View {
       g.rug = hash(p.demo ? (g.space ?? g.name) : g.key) % RUGS.length;
       if (gi && g.rug === groups[gi - 1].rug) g.rug = (g.rug + 1) % RUGS.length;
     });
-    const { k, s, cols, rows } = fit(groups.map((g) => g.agents.length), w, h);
+    const countOf = (g) => g.agents.length + g.shells.length;
+    const { k, s, cols, rows } = fit(groups.map(countOf), w, h);
     const sw = Math.round(SLOT_W * k), sh = Math.round(SLOT_H * k), gap = Math.round(GAP * k), q = (v) => Math.round(v * k);
     const width = cols.reduce((a, b) => a + b, 0) * sw + (groups.length - 1) * gap;
     const top = WALL + q(40), lanes = [];
-    const desks = []; // { a, x, y, row }
+    const desks = [], stations = []; // { a|sh, x, y, row }
     let x0 = Math.round((w - width) / 2);
     groups.forEach((g, gi) => {
-      Object.assign(g, { x: x0, w: cols[gi] * sw, rows: Math.ceil(g.agents.length / cols[gi]) });
-      for (let j = 0; j < g.agents.length; j++)
-        desks.push({ a: g.agents[j], x: x0 + (j % cols[gi]) * sw, y: top + Math.floor(j / cols[gi]) * sh, row: Math.floor(j / cols[gi]) });
+      const n = countOf(g);
+      Object.assign(g, { x: x0, w: cols[gi] * sw, rows: Math.ceil(n / cols[gi]) });
+      const items = [...g.agents.map((a) => ({ a })), ...g.shells.map((sh) => ({ sh }))];
+      for (let j = 0; j < n; j++) {
+        const x = x0 + (j % cols[gi]) * sw, y = top + Math.floor(j / cols[gi]) * sh, row = Math.floor(j / cols[gi]);
+        if (items[j].a) desks.push({ a: items[j].a, x, y, row });
+        else stations.push({ sh: items[j].sh, x, y, row });
+      }
       x0 += g.w + gap;
       if (gi < groups.length - 1) lanes.push(x0 - gap + Math.round((gap - 16 * s) / 2));
     });
@@ -729,7 +807,9 @@ export default class Office extends View {
           .child(r(q(6), q(6), rw - q(12) - 6, rh - q(12) - 6, col).border(1).border_color(`${edge}aa`));
       }))
       .children(desks.map((d, i) => this.desk(d.a, i, d.x, d.y, k, night)))
+      .children(stations.map((st) => this.station(st.sh, st.x, st.y, k, night)))
       .children(desks.map((d) => this.label(d.a, d.x, d.y, k)))
+      .children(stations.map((st) => this.stationLabel(st.sh, st.x, st.y, k)))
       .children(groups.filter((g) => g.name).map((g) => {
         const edge = RUGS[g.rug][1], ts = Math.max(8, q(16));
         return div().absolute().left(g.x - q(8)).top(top - q(8) - ts - 8).px(8).py(4).bg(edge)

@@ -67,7 +67,9 @@ same strip asks for a project folder, then opens a new tab running `omp` there, 
 rail's `agent` prop in the layout (Herdr's `tab.new`). Canceling the folder picker opens nothing.
 A space on another machine skips the local picker and starts in that space's own folder.
 Clicking **Shell** beside it opens a plain terminal in the active space's folder, with no picker
-and no agent: the place to run the project's commands.
+and no agent: the place to run the project's commands. Every terminal tab without an agent shows
+up on its project's rug as a **Shell-o-mat**, a little command vending machine with the tab name
+under it.
 
 ## The office
 
@@ -100,16 +102,21 @@ and no agent: the place to run the project's commands.
   When someone is blocked, its **NEEDS YOU** line names the next one; click it to jump there.
 - Click a worker to jump to that agent. Hover a desk for a sticky note with its name, tab,
   project, space, title and status.
-- Each project gets its own group of desks on a coloured rug, with its name on a tag: a space
-  someone named, or else the live folder the agent works in.
-- Only the desks in use are drawn: one per agent, one row up to four agents, more rows when they
-  fit better. Everything scales with the agent count and workers stay crisp.
+- Each project gets its own group of desks and shell stations on a coloured rug, with its name
+  on a tag: a space someone named, or else the live folder the agent works in.
+- Only the slots in use are drawn: one desk per agent and one Shell-o-mat per tab without an
+  agent, one row up to four slots, more rows when they fit better. Everything scales with the
+  slot count and workers stay crisp.
 - The wood strip is also the tab bar: every tab of the active space is a chip with its program
   icon, name and agent status. Click one to switch, close the active one with its `x`, or roll the
-  wheel over the strip to cycle tabs. The office floor keeps showing every agent in every tab.
+  wheel over the strip to cycle tabs. The office floor keeps showing every agent and every shell
+  tab in every space.
 - Click **Neuen einstellen** in the strip below the office, pick the project folder, and `omp`
   starts there. **Shell** beside it opens a plain terminal in the active space's folder: no
   agent and no picker, just a shell ready for the project's commands.
+- A terminal tab without an agent is drawn as a **Shell-o-mat** on its project's rug: a command
+  vending machine with a blinking prompt, a paper tape and the tab name underneath. Click it to
+  show that tab; a project with only shell tabs gets a rug of its own.
 - Workers keep to their own line in the walkways and wait for each other (and the cat).
 
 Under the office a wood strip lists the current space and all of its tabs plus the **Neuen
