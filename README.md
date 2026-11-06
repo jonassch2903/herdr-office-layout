@@ -66,6 +66,8 @@ every tab of the current space; click a chip to switch tabs. Clicking **Neuen ei
 same strip asks for a project folder, then opens a new tab running `omp` there, as set by the
 rail's `agent` prop in the layout (Herdr's `tab.new`). Canceling the folder picker opens nothing.
 A space on another machine skips the local picker and starts in that space's own folder.
+Clicking **Shell** beside it opens a plain terminal in the active space's folder, with no picker
+and no agent: the place to run the project's commands.
 
 ## The office
 
@@ -106,11 +108,12 @@ A space on another machine skips the local picker and starts in that space's own
   icon, name and agent status. Click one to switch, close the active one with its `x`, or roll the
   wheel over the strip to cycle tabs. The office floor keeps showing every agent in every tab.
 - Click **Neuen einstellen** in the strip below the office, pick the project folder, and `omp`
-  starts there.
+  starts there. **Shell** beside it opens a plain terminal in the active space's folder: no
+  agent and no picker, just a shell ready for the project's commands.
 - Workers keep to their own line in the walkways and wait for each other (and the cat).
 
 Under the office a wood strip lists the current space and all of its tabs plus the **Neuen
-einstellen** button, and your terminals get the rest of the window in wood frames.
+einstellen** and **Shell** buttons, and your terminals get the rest of the window in wood frames.
 
 ## Credits
 

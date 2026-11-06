@@ -580,12 +580,24 @@ export default class Office extends View {
           });
         })
         .child(txt("Neuen einstellen", 12, ink));
+      // A plain shell in the active space's folder, for commands the project needs: no agent,
+      // no folder picker. An unnamed space with no folder keeps Herdr's default (the focused
+      // terminal's folder).
+      const shell = div().px(8).py(2).bg("#fbfbf6").border(2).border_color("#6b3f1f").cursor_pointer()
+        .hover((e) => e.bg("#fff1d6"))
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_click(() => {
+          if (demo) return;
+          run("tab.new", { ...(s ? { space: s.id } : {}), ...(s?.folder ? { folder: s.folder } : {}) });
+        })
+        .child(txt("Shell", 12, ink));
       return h_flex().size_full().min_w(0).bg(wood).px(12).gap(6).items_center()
         .on_scroll_wheel((e) => { if (!demo && Math.abs(e.delta.y) >= 1) run(e.delta.y > 0 ? "tab.prev" : "tab.next"); })
         .child(txt(demo ? "web" : (s?.name ?? ""), 12, "#fff1d6"))
         .child(txt("/", 12, "#c98a4f"))
         .child(h_flex().id("rail-tabs").flex_1().min_w(0).h_full().items_center().gap(4).overflow_x_scrollbar().children(tabs.map(tabChip)))
-        .child(hire);
+        .child(hire)
+        .child(shell);
     }
     // props.demo fills the desks with sample workers in every state (for previews).
     const list = p.demo ? DEMO : agents();

@@ -63,7 +63,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
    of that space in host order (22px high, 6px padding, 5px gap): program icon (12px), tab name
    (max 110px, truncated) and a 6px status dot (green working, red blocked, blue done). The active
    chip is cream `#fbfbf6` with a `#6b3f1f` border and a small `x`; the rest sit on the wood with
-   cream text. Long strips scroll sideways. A cream **Neuen einstellen** button stays on the right.
+   cream text. Long strips scroll sideways. Two cream buttons stay on the right: **Neuen
+   einstellen**, and **Shell** beside it (a plain terminal in the active space's folder).
 3. **Terminals**, weight 1, 12px side padding and no vertical padding, so the panes reach the bottom:
    the active tab, every pane (a lone one too) in a
    4px `#5c3418` frame (`#e2a465` when focused), 10px apart, with a 26px `#c99a62` header: program
@@ -162,7 +163,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `office.json`). A space on another machine skips
   the local picker and starts its tab in that space's own folder. A program Herdr's table does
   not list (omp) starts as its bare command, and without the prop the first installed agent
-  from `knownAgents()` is used.
+  from `knownAgents()` is used. The **Shell** button beside it runs
+  `run("tab.new", { space, folder })` with the active space's folder and no `argv`, so Herdr
+  starts its default shell there for the project's commands; there is no picker and no agent.
+  An empty space folder leaves Herdr's default (the focused terminal's folder).
   Hovering a desk shows a yellow sticky note: name, tab, project, space, title, status. Desk
   order is the project-grouped order and is passed to `setAgentOrder`.
 - **Fit**: tries 1–6 rows, each project getting `ceil(n / rows)` columns for its `n` agents, with
@@ -199,9 +203,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, shows three inert sample tabs
-  (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire button;
-  the stats queue is display-only, but the cat can still be petted. It also seeds
-  `Neuer Kollege: Dietrich`. The preview was taken that way.
+  (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire and
+  shell buttons; the stats queue is display-only, but the cat can still be petted. It also
+  seeds `Neuer Kollege: Dietrich`. The preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
   `run("agent.focus")`, `run("tab.new")`, `run("tab.select")`, `run("tab.close")`,
   `run("tab.prev")`, `run("tab.next")` and `setAgentOrder`. No network, no `exec`, no files
@@ -260,6 +264,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   shows the three sample chips only.
 - Clicking **Neuen einstellen** asks for a project folder and opens a tab running `omp` there;
   canceling opens nothing; an empty office shows no desks.
+- Clicking **Shell** opens a plain terminal tab in the active space's folder, with no picker and
+  no agent; in demo mode it does nothing.
 - The wall screen shows all sessions and turns on the floor (OMP or not), working / needs you /
   done / idle counts, and its activity strip fills over four minutes; starting or finishing any
   agent updates it. With a blocked worker its bottom row blinks `NEEDS YOU` with that worker's
