@@ -49,8 +49,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      worker's program icon and old German given name (12px) sit 130 down, with the current task
      (the agent's terminal title, 10px, wrapped across the slot width) on the lines below. The rest
      of the slot, 130 to 190, is the aisle.
-   - **Shell-o-mat**: a tab whose panes have no agent gets no desk but a command vending machine
-     on its project's rug, also in a 170×190 slot: a 92×108 dark-green cabinet with a cream `SHELL`
+   - **Shell-o-mat**: a tab with terminal panes but no agent gets no desk but a command vending
+     machine on its project's rug, also in a 170×190 slot: a 92×108 dark-green cabinet with a cream `SHELL`
      marquee, a green screen showing `>` and a blinking `_`, three small buttons and a big red
      button, a coin slot, a paper tape curling out, a mug and a stack of manuals beside it. The
      tab's program icon and `Tab <name>` (12px) sit 130 down, with `Shell-o-mat` (10px) below.

@@ -716,17 +716,19 @@ export default class Office extends View {
         name: sameDir(cwd, space?.folder) ? (fallback || dir) : (dir || fallback || ""),
       };
     };
-    // A tab with panes but no agent is a shell window. It gets a Shell-o-mat on its project's
-    // rug, so a plain terminal is as easy to place as a worker is. Agent tabs already have a desk.
+    // A tab with terminal panes and no agent is a shell window. It gets a Shell-o-mat on its
+    // project's rug, so a plain terminal is as easy to place as a worker is. Agent tabs already
+    // have a desk, and a mod-only tab has no terminal to represent.
     const agentTabs = new Set(list.map((a) => a.tab).filter(Boolean));
     const shells = [];
     for (const sp of allSpaces) {
       for (const t of sp.tabs) {
-        const ps = panesByTab.get(t.id);
-        if (!ps?.length || agentTabs.has(t.id) || ps.some((x) => x.program?.agent)) continue;
+        const ps = panesByTab.get(t.id)?.filter((x) => x.terminal && !x.mod) ?? [];
+        if (!ps.length || agentTabs.has(t.id) || ps.some((x) => x.program?.agent)) continue;
         shells.push({
           id: t.id, name: t.name, active: t.active, space: sp.id, spaceName: sp.name,
-          cwd: ps.find((x) => x.cwd)?.cwd, program: ps[0].program,
+          // A shell whose pane has not reported a folder yet still belongs to the space's.
+          cwd: ps.find((x) => x.cwd)?.cwd ?? sp.folder, program: ps[0].program,
         });
       }
     }
