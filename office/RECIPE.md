@@ -65,7 +65,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
      otherwise random. The first worker, Michels Mum, always looks like a woman: long hair or a
      bun, a coloured skirt while standing and lipstick in the front view.
    - **Cat**: a 10×7 sprite in a random coat, roaming the walkways or sitting on a blocked
-     worker's desk in front of the monitor; click it to pet it.
+     worker's desk in front of the monitor; click it to pet it, click again while the `♥` is
+     up to tease it with a red laser dot.
 2. **Strip**, 28px `#8a5530`: the active space's name in `#fff1d6`, a `/`, then one chip per tab
    of that space in host order (22px high, 6px padding, 5px gap): program icon (12px), tab name
    (max 110px, truncated) and a 6px status dot (green working, red blocked, blue done). The active
@@ -104,7 +105,11 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   on the desk in front of the monitor (`onDesk`, no draw offset, facing left), stores the worker's
   address in `watch`, and stays 18–40s. When the watched worker recovers or leaves, the cat clears
   `watch`, ends the rest and walks off. This desk hop is the one deliberate exception to the
-  walkways. Clicking the cat sets `pet` for 2.5s and shows a `♥` bubble.
+  walkways. Clicking the cat sets `pet` for 2.5s and shows a `♥` bubble. A second click within
+  those 2.5s starts the laser: a red dot appears on a walkway away from the cat, the cat chases
+  it at 1.6× its walking speed (0.112 px/ms) along the lane centre, and the dot hops to a fresh
+  spot the cat can reach within 2.6s whenever it catches it. The chase lasts 6s; clicking the cat
+  during it ends the game and pets it again.
 - **Walkways**: the corridor along the wall (walker top at `WALL-40`), the aisle behind each row
   (`row top + 128k`), a lane past each end of the rows and one between each pair of space groups.
   Everyone keeps to their own line, up to ±8k off the middle, and waits (up to 1.5s, the cat 2s)
@@ -165,7 +170,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   is `TabInfo.status`, the most urgent agent status in the tab. The floor is independent of the
   shown tab: every agent in every tab keeps its worker and desk.
 - Clicking a worker or their desk runs `agent.focus`; the stats board's `NEEDS YOU` row focuses
-  the displayed agent and advances `blockedCursor`; clicking the cat pets it. The
+  the displayed agent and advances `blockedCursor`; clicking the cat pets it, and a second click
+  while the `♥` is up starts the laser chase. The
   **Neuen einstellen** button in the strip first asks for a project folder with
   `pickFolder({ prompt: "Starten" })` when the active space is local (canceling starts nothing),
   then opens a tab in that folder in the active space running the rail's `agent` prop (`"omp"` in
@@ -210,8 +216,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `agents()` and `terminals()` for every agent on the floor; `tick()` samples the busy-worker count
   into `hist` every ~10s. `render()` also maintains
   the needs-you cursor (`blockedCursor`), the news feed (`pushNews` into `news`, fed by `since`
-  and `lastTurn`), and the cat's `watch`; `moveCat()` steers it to blocked desks and `tick()`
-  expires the petting bubble (`pet`). `SMALL_TALK` lines are chosen per stay in `worker()`.
+  and `lastTurn`), and the cat's `watch`; `moveCat()` steers it to blocked desks, and
+  `startLaser()`/`laserHop()` send it after the dot. `tick()` expires the petting bubble (`pet`)
+  and the 6s laser (`laser`). `SMALL_TALK` lines are chosen per stay in `worker()`.
   `render()` also sets `mumAddress` to the first agent:
   `nameFor()` gives that address `Michels Mum`, `look()` renders her as a woman, and `tick()` picks
   from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
@@ -219,7 +226,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   every state, in three spaces, who wander four times as often, shows three inert sample tabs
   (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire and
   shell buttons; it draws no Shell-o-mats, because those sample tabs are not real, and the stats
-  queue is display-only, but the cat can still be petted. It also seeds `Neuer Kollege: Dietrich`.
+  queue is display-only, but the cat can still be petted and chased after the laser. It also seeds
+  `Neuer Kollege: Dietrich`.
   The preview was taken that way.
 - Uses `agents()`, `spaces()`, `panes()`, `terminals()`, `knownAgents()`, `pickFolder()`,
   `run("agent.focus")`, `run("tab.new")`, `run("tab.select")`, `run("tab.close")`,
@@ -250,8 +258,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   non-OMP terminal still moves `TURNS` and the strip.
 - The cat's trip to a blocked desk is the only deliberate exception to the walkways: it uses the
   seat coordinate (`seat.y - 7k`) and draws with no 30k offset while `onDesk`. Clear `watch` as
-  soon as the agent is no longer blocked so it leaves; clicking only sets `pet`, it never moves
-  the cat.
+  soon as the agent is no longer blocked so it leaves; a single click only sets `pet`, while a
+  second click within 2.5s starts the laser and does move the cat.
 - Small talk picks one speaker per spot by the lowest `hash(address)`; the other chat visitor
   keeps `...`. The line is keyed by the trip's `until`, so changing that timestamp mid-stay
   changes the line. Thoughts are suppressed only while `there` at the cooler or a chat desk.
@@ -292,7 +300,8 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - When an agent asks for permission its worker jumps and its screen blinks `NEEDS YOU`. When it finishes while
   you're elsewhere, the worker dozes with `zZz`. With a blocked agent, the cat sometimes sits on
   that worker's desk in front of the monitor and leaves once the agent recovers; clicking the cat
-  shows a `♥` bubble.
+  shows a `♥` bubble, and a second click starts a 6s laser chase after a red dot that hops away
+  whenever the cat catches it.
 - Idle workers get up within a minute or so, walk the aisles and lanes without crossing desks,
   and walk back. They return at once when their agent starts working. At the water cooler or a
   chat desk exactly one visitor speaks a short German line (the other chat visitor shows `...`),

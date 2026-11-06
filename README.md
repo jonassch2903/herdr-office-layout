@@ -85,7 +85,8 @@ under it.
   a chat. They keep to the walkways and hurry back when their agent starts working. Michels Mum,
   the first worker on the floor, never visits the water cooler: she goes to the `RAUCHEN` corner
   and smokes a cigarette instead. At the cooler and at a shared desk they trade short office
-  lines; the cat sometimes naps on a blocked worker's keyboard (click it to pet it). The sign on
+  lines; the cat sometimes naps on a blocked worker's keyboard (click it to pet it, click again
+  to tease it with a laser dot). The sign on
   the wall shows the latest floor event: a new colleague, a finished job, a blocked agent, or a
   turn milestone.
 - New agents walk in through the door to their desk.

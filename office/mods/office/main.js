@@ -151,6 +151,7 @@ export default class Office extends View {
     this.newsSeeded = false;
     this.blockedCursor = 0; // which blocked worker the stats board's queue targets
     this.pet = 0;        // cat petting bubble until this timestamp
+    this.laser = null;   // { until, r, x }: the cat chases this dot
     if (props()?.role) return;
     this.roomView = cx.new(Room, this.roomProps());
     cx.timer.every(TICK_MS, (cx) => { this.syncRoom(); if (this.tick()) cx.notify(); });
@@ -269,6 +270,7 @@ export default class Office extends View {
       }
     }
     for (const [k, t] of Object.entries(this.thoughts)) if (now >= t.until) { delete this.thoughts[k]; changed = true; }
+    if (this.laser && now >= this.laser.until) { this.laser = null; changed = true; }
     changed = this.moveCat(now) || changed;
     if (this.pet && now >= this.pet) { this.pet = 0; changed = true; }
     if (this.door && now >= this.door) { this.door = 0; changed = true; }
@@ -301,20 +303,23 @@ export default class Office extends View {
         if (now < c.wait) { c.until = now + TICK_MS; return false; }
       }
       c.wait = 0; c.i++; c.until = now + c.path[c.i].ms; c.left = c.path[c.i].left; return true; }
-    const at = c.path?.[c.i] ?? { r: -1, x: Math.round(this.size.width / 3) };
+    const at = c.path?.[c.i] ?? { r: -1, x: Math.round(this.size.width / 3), y: this.laneY(-1) };
     if (c.path && !c.resting) {
+      if (this.laser) return this.laserHop(now, at);
       c.resting = true;
       c.until = now + (c.onDesk
         ? c.watch ? 18000 + Math.random() * 22000 : 1200 + Math.random() * 1800
         : Math.random() < 0.4 ? 8000 + Math.random() * 15000 : 1000 + Math.random() * 3000);
       return false;
     }
+    if (this.laser) return this.laserHop(now, at);
     // Prefer a blocked worker's desk; otherwise keep to the walkways.
     const blocked = this.list.filter((a) => a.status === "blocked" && this.seats[a.address]);
     const target = blocked.length && Math.random() < 0.6 ? blocked[Math.floor(Math.random() * blocked.length)] : null;
     const from = c.onDesk ? { r: at.r, x: at.x, seat: at.y } : { r: at.r, x: at.x };
+    const k = g.k;
     if (target) {
-      const st = this.seats[target.address], k = g.k;
+      const st = this.seats[target.address];
       const to = { r: st.row, x: Math.round(st.x + 20 * k), seat: Math.round(st.y - 7 * k) };
       c.path = this.path(from, to, CAT_WALK, Math.round((Math.random() * 16 - 8) * k));
       Object.assign(c, { i: 0, until: now + c.path[0].ms, left: true, resting: false, onDesk: true, watch: target.address });
@@ -324,6 +329,52 @@ export default class Office extends View {
       Object.assign(c, { i: 0, until: now + c.path[0].ms, left: c.path[0].left, resting: false, onDesk: false, watch: null });
     }
     return true;
+  }
+
+  // A second click while the cat is being petted starts the laser: six seconds of chasing.
+  // The dot lands on a walkway away from the cat; the cat runs at 1.6× its walking speed.
+  startLaser(now) {
+    const g = this.geo, c = this.cat;
+    if (!g) return false;
+    const at = c.path?.[c.i] ?? { r: -1, x: Math.round(this.size.width / 3), y: this.laneY(-1) };
+    const { r, x } = this.laserSpot(at, 100 * g.k);
+    this.laser = { until: now + 6000, r, x };
+    c.watch = null;
+    this.aimCat(now, at, r, x);
+    return true;
+  }
+
+  // Keep the dot on a spot the cat can reach well inside the six seconds: the walkway route
+  // (not the straight line) must take at most 2.6s. This also rules out a dot across the room.
+  laserSpot(at, min) {
+    const g = this.geo, w = this.size.width, c = this.cat;
+    const from = c.onDesk && c.i === (c.path?.length ?? 0) - 1 ? { r: at.r, x: at.x, seat: at.y } : { r: at.r, x: at.x };
+    let fallback = null;
+    for (let i = 0; i < 12; i++) {
+      const r = Math.floor(Math.random() * (g.rows + 1)) - 1;
+      const x = Math.round(8 + Math.random() * (w - 60));
+      if (Math.hypot(x - at.x, this.laneY(r) - at.y) < min) continue;
+      const path = this.path(from, { r, x }, CAT_WALK * 1.6, 0);
+      const ms = path.reduce((n, p) => n + p.ms, 0);
+      fallback = { r, x };
+      if (ms <= 2600) return fallback;
+    }
+    return fallback ?? { r: at.r, x: Math.round(Math.min(w - 60, Math.max(8, at.x + (at.x > w / 2 ? -1 : 1) * 150))) };
+  }
+
+  // The dot hops to a fresh spot whenever the cat reaches it.
+  laserHop(now, at) {
+    const { r, x } = this.laserSpot(at, 80 * this.geo.k);
+    this.laser = { ...this.laser, r, x };
+    this.aimCat(now, at, r, x);
+    return true;
+  }
+
+  aimCat(now, at, r, x) {
+    const c = this.cat;
+    const from = c.onDesk && c.i === (c.path?.length ?? 0) - 1 ? { r: at.r, x: at.x, seat: at.y } : { r: at.r, x: at.x };
+    const path = this.path(from, { r, x }, CAT_WALK * 1.6, 0);
+    Object.assign(c, { path, i: 0, until: now + path[0].ms, left: path[0].left, resting: false, onDesk: false, wait: 0 });
   }
 
   // ---- drawing --------------------------------------------------------------
@@ -818,10 +869,25 @@ export default class Office extends View {
           .child(txt(g.name.slice(0, 20), ts, "#fff8e1"));
       }))
       .children(list.map((a) => this.worker(a, k, s)))
+      .when(!!this.laser, (e) => {
+        const las = this.laser, d = Math.max(3, Math.round(6 * k)), glow = d + Math.max(4, Math.round(8 * k));
+        const lx = las.x + Math.round(15 * k), ly = this.laneY(las.r) + Math.round(46 * k);
+        return e.child(div().id("laser").absolute().left(lx - Math.round(glow / 2)).top(ly - Math.round(glow / 2))
+          .size(glow).flex().items_center().justify_center().bg("#ff2d5526")
+          .transition("left", { duration: 260, easing: "linear" }).transition("top", { duration: 260, easing: "linear" })
+          .child(div().id("laser-core").size(d).bg("#ff2d55").loop("opacity", { from: 0.55, to: 1, period: 320 })));
+      })
       .child(div().id("cat").absolute().left(cp.x).top(cp.y + (onDesk ? 0 : Math.round(30 * k)))
         .transition("left", { duration: cp.ms, easing: "linear" }).transition("top", { duration: cp.ms, easing: "linear" })
         .cursor_pointer()
-        .on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.pet = Date.now() + 2500; cx.notify(); })
+        .on_mouse_down("left", (_e, cx) => {
+          cx.stop_propagation();
+          const now = Date.now();
+          if (this.laser) { this.laser = null; this.pet = now + 2500; }
+          else if (this.pet > now) { this.pet = 0; this.startLaser(now); }
+          else this.pet = now + 2500;
+          cx.notify();
+        })
         .child(cat(c.coat, s, onDesk ? true : c.left))
         .when(petting, (e) => e.child(bubble(txt("♥", 12, "#b83a5a")).left(10 * s).top(-6 * s))))
       .when(night, (e) => e.child(r(0, 0, w, h, "#0b123650")))
