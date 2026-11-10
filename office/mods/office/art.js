@@ -39,21 +39,25 @@ export const SKIN = ["#f1c9a5", "#e0ac84", "#c68a5e", "#9a6440", "#6e4429", "#f5
 export const SHIRT = ["#4f7dc9", "#c9504f", "#5aa064", "#d79a3a", "#8a62b8", "#3f9aa6", "#e07a9a", "#7a8a3a"];
 export const STYLES = ["short", "long", "bun", "bald", "spiky"];
 const KIND = { claude: "#d97757", codex: "#2f3640", gemini: "#4f7dc9", opencode: "#8a62b8", pi: "#e58fb6", grok: "#5b5b66", hermes: "#d79a3a", cursor: "#3f9aa6", copilot: "#24292f" };
+const WITH_HAIR = STYLES.filter((s) => s !== "bald");
+// Trixie never changes: dark hair and a permanently flushed, cross face.
+const TRIXIE_HAIR = "#151515", TRIXIE_SKIN = "#d2604a";
 
 // Everything random about a worker, fixed by their address so they look the same every render.
-// `woman` forces the feminine sprite cues (long hair or a bun, a skirt, lipstick) for Michels Mum.
-export function look(a, { woman = false } = {}) {
+// `woman` forces the feminine sprite cues (long hair or a bun, a skirt, lipstick) for Michels Mum;
+// `grumpy` pins Trixie's dark hair, red face and scowl and keeps her from going bald.
+export function look(a, { woman = false, grumpy = false } = {}) {
   const R = rng(hash(a.address));
   const kind = `${a.app ?? ""} ${a.program?.name ?? ""}`.toLowerCase();
   const shirt = Object.entries(KIND).find(([k]) => kind.includes(k))?.[1];
-  const hair = pick(R, HAIR), skin = pick(R, SKIN);
-  const style = woman ? pick(R, ["long", "bun"]) : pick(R, STYLES);
-  const glasses = R() < 0.3;
+  const hair = grumpy ? TRIXIE_HAIR : pick(R, HAIR), skin = grumpy ? TRIXIE_SKIN : pick(R, SKIN);
+  const style = woman ? pick(R, ["long", "bun"]) : grumpy ? pick(R, WITH_HAIR) : pick(R, STYLES);
+  const glasses = !grumpy && R() < 0.3;
   return {
-    hair, skin, style, glasses,
+    hair, skin, style, glasses, grumpy,
     shirt: shirt ?? pick(R, SHIRT), bob: 280 + Math.floor(R() * 220), book: pick(R, ["#7a2f2f", "#2f5a7a", "#3f6b3a", "#8a6a2a"]),
     skirt: woman ? pick(R, ["#6b3f7a", "#7a4a5a", "#3f5a7a", "#7a3a3a"]) : null,
-    lip: woman ? "#b83a5a" : "#a0522d",
+    lip: woman ? "#b83a5a" : grumpy ? "#7a2a24" : "#a0522d",
   };
 }
 
@@ -76,19 +80,32 @@ const STAND = [".TTTTTTTTTT.", "TTTTTTTTTTTT", "STTTTTTTTTTS", "STTTTTTTTTTS", "
 
 const palette = (lk) => ({ H: lk.hair, S: lk.skin, E: "#1b1b1b", m: lk.lip ?? "#a0522d", G: "#222222", T: lk.shirt, C: "#3d4454", c: "#525b6e", K: "#2b2f3a", P: lk.skirt ?? "#3b4252" });
 
-// Seated at the desk, seen from behind. 16×20 art pixels.
+// The front face, with glasses or Trixie's scowl baked in.
+function face(lk) {
+  let head = FRONT[lk.style];
+  if (lk.glasses) head = head.map((row, i) => (i === 3 ? row.slice(0, 2) + "SGEGGEGS" + row.slice(10) : row));
+  // Trixie scowls: brows straight over the eyes and a wide, flat mouth.
+  if (lk.grumpy) head = head.map((row, i) => (i === 2
+    ? `${row.slice(0, 4)}E${row.slice(5, 7)}E${row.slice(8)}`
+    : i === 5 ? `${row.slice(0, 4)}mmmm${row.slice(8)}` : row));
+  return head;
+}
+
+// Seated at the desk, seen from behind. 16×20 art pixels. Trixie turns around to scowl at you,
+// so her red face stays visible while she works.
 export function seated(lk, s, sleeping) {
   const pal = palette(lk);
   return div().relative().w(16 * s).h(20 * s)
     .child(sprite(SEATED, pal, s).absolute().left(0).top(8 * s))
-    .child(sprite(BACK[lk.style], pal, s).absolute().left(0).top(sleeping ? 3 * s : 0));
+    .child(lk.grumpy
+      ? sprite(face(lk), pal, s).absolute().left(2 * s).top(s)
+      : sprite(BACK[lk.style], pal, s).absolute().left(0).top(sleeping ? 3 * s : 0));
 }
 
 // Standing, facing you ("front") or the wall ("back"), legs swinging while walking. 16×17.
 export function standing(lk, s, facing, walking, item, id) {
   const pal = palette(lk);
-  let head = facing === "front" ? FRONT[lk.style] : BACK[lk.style].map((row) => row.slice(2, 14));
-  if (facing === "front" && lk.glasses) head = head.map((row, i) => (i === 3 ? row.slice(0, 2) + "SGEGGEGS" + row.slice(10) : row));
+  const head = facing === "front" ? face(lk) : BACK[lk.style].map((row) => row.slice(2, 14));
   const leg = (x, from, to) => {
     const el = r(2 * s + x * s, 13 * s, 2 * s, 4 * s, "#2b2f3a").id(`${id}-leg${x}`);
     return walking ? el.loop("height", { from: from * s, to: to * s, period: 360, easing: "linear" }) : el;

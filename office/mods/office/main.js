@@ -49,6 +49,9 @@ const SPOTS = ["cooler", "cooler", "shelfL", "shelfR", "window", "door", "plant"
 // her cooler trips lead to the smoking corner instead. Everyone else keeps the usual spots.
 const MUM = "Michels Mum";
 const MUM_SPOTS = SPOTS.map((k) => (k === "cooler" ? "smoke" : k));
+// The second worker on the floor is always Trixie: dark hair, a flushed red face and a speech
+// bubble that never stops complaining.
+const TRIXIE = "Trixie";
 const WALK = 0.11, CAT_WALK = 0.07; // px per ms
 const busy = (a) => a.status === "working" || a.status === "blocked";
 // The wall screen is the floor's dashboard: live sessions, completed turns and a short activity
@@ -72,6 +75,12 @@ const SMALL_TALK = [
   "Hast du den Kunden gefragt?",
   "Mein Prompt war zu lang.",
   "Schon Feierabend?",
+];
+// Trixie's running complaint. `frames` cycles these in her bubble, so she grumbles nonstop.
+const WHINES = [
+  "Immer ich!", "Nichts als Ärger!", "So ein Mist!", "Pah!",
+  "Zu laut!", "Zu warm!", "Zu kalt!", "Niemand hört zu!",
+  "Unverschämt!", "Typisch!", "Der Kaffee ist alle!", "Schon wieder!",
 ];
 const short = (n) => (n > 9999 ? `${Math.round(n / 1000)}k` : `${n}`);
 // OMP titles look like "π > 🐙 ACT: …" or "π ⠙ 🏷️ AGNT: …": drop the logo, status glyph and
@@ -142,6 +151,7 @@ export default class Office extends View {
     this.cat = { coat: pick(rng(this.seed), CATS), path: null, i: 0, until: 0, left: false, onDesk: false, watch: null };
     this.list = [];
     this.mumAddress = null; // the first agent on the floor, always Michels Mum
+    this.trixieAddress = null; // the second agent on the floor, always Trixie
     this.names = {};     // address → old German name, fixed for the session
     this.hist = [];      // busy-worker count, one sample every ~10s
     this.histSeeded = false;
@@ -405,12 +415,14 @@ export default class Office extends View {
       });
   }
 
-  // The first worker on the floor is always Michels Mum. Everyone else gets a free old German
-  // name; newcomers pick one nobody at a desk has, and a former Mum gets a normal name back.
+  // The first worker on the floor is always Michels Mum, the second Trixie. Everyone else gets a
+  // free old German name; newcomers pick one nobody at a desk has, and a former Mum or Trixie
+  // gets a normal name back.
   nameFor(a, used) {
     if (a.address === this.mumAddress) { this.names[a.address] = MUM; used.add(MUM); return MUM; }
+    if (a.address === this.trixieAddress) { this.names[a.address] = TRIXIE; used.add(TRIXIE); return TRIXIE; }
     let name = this.names[a.address];
-    if (!name || name === MUM || used.has(name)) {
+    if (!name || name === MUM || name === TRIXIE || used.has(name)) {
       const free = NAMES.filter((n) => !used.has(n));
       name = free[Math.floor(Math.random() * free.length)] ?? NAMES[Math.floor(Math.random() * NAMES.length)];
       this.names[a.address] = name;
@@ -568,7 +580,8 @@ export default class Office extends View {
 
   // The worker, at their seat or out walking. Each leg of a walk animates natively.
   worker(a, k, s) {
-    const lk = look(a, { woman: a.address === this.mumAddress }), t = this.trips[a.address], id = `w-${a.address}`, seat = this.seats[a.address];
+    const grumpy = a.address === this.trixieAddress;
+    const lk = look(a, { woman: a.address === this.mumAddress, grumpy }), t = this.trips[a.address], id = `w-${a.address}`, seat = this.seats[a.address];
     let pos = seat, ms = 16, body;
     if (!t) {
       body = seated(lk, s, a.status === "done").id(`${id}-sit`);
@@ -596,20 +609,26 @@ export default class Office extends View {
       return ot?.phase === "there" && ot.spot.key === t.spot.key
         && (t.spot.key !== "chat" || ot.spot.other === t.spot.other);
     }) : [];
-    const speaks = !mates.length || mates.sort((a, b) => hash(a.address) - hash(b.address))[0].address === a.address;
-    const talk = (atCooler || chatting) && speaks
+    // Trixie's complaint owns the bubble at her spot, so nobody else talks over it. That
+    // includes a visitor at her desk: they have no trip of their own there.
+    const trixieHere = mates.some((o) => o.address === this.trixieAddress)
+      || (chatting && t.spot.other === this.trixieAddress);
+    const speaks = !trixieHere && (!mates.length || mates.sort((a, b) => hash(a.address) - hash(b.address))[0].address === a.address);
+    const talk = !grumpy && (atCooler || chatting) && speaks
       ? SMALL_TALK[hash(`${a.address}:${t.until}`) % SMALL_TALK.length] : null;
     return div().id(id).absolute().left(pos.x).top(pos.y).w(16 * s).h(20 * s)
       .transition("left", { duration: ms, easing: "linear" }).transition("top", { duration: ms, easing: "linear" })
       .cursor_pointer().on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(() => !this.demo && run("agent.focus", { terminal: a.address }))
       .child(body)
-      .when(!t && a.status === "done", (e) => e.child(txt("z", 16, "#24406e").absolute().left(14 * s).top(-2 * s).id(`${id}-z`).frames(["z", "zZ", "zZz", ""], 500)))
+      .when(!grumpy && !t && a.status === "done", (e) => e.child(txt("z", 16, "#24406e").absolute().left(14 * s).top(-2 * s).id(`${id}-z`).frames(["z", "zZ", "zZz", ""], 500)))
       .when(t?.phase === "there" && t.spot.key === "smoke", (e) => e.child(txt("~", 12, "#e8e8e8")
         .absolute().left(13 * s).top(-4 * s).id(`${id}-smoke`).frames(["", "~", "≈", "~", ""], 700)))
-      .when(!!talk, (e) => e.child(bubble(txt(talk, 10, ink).w(100).whitespace_normal()).left(10 * s).top(-6 * s)))
-      .when(chatting && !talk, (e) => e.child(bubble(txt(".", 12, ink).id(`${id}-chat`).frames([".", "..", "..."], 400)).left(10 * s).top(-6 * s)))
-      .when(!!th && !chatting && !atCooler, (e) => e.child(bubble(txt(th.sym, 12, ink)).left(11 * s).top(-6 * s)));
+      .when(grumpy, (e) => e.child(bubble(txt(WHINES[0], 10, ink).w(100).whitespace_normal()
+        .id(`${id}-whine`).frames(WHINES, 1600)).left(10 * s).top(-6 * s)))
+      .when(!grumpy && !!talk, (e) => e.child(bubble(txt(talk, 10, ink).w(100).whitespace_normal()).left(10 * s).top(-6 * s)))
+      .when(!grumpy && chatting && !talk, (e) => e.child(bubble(txt(".", 12, ink).id(`${id}-chat`).frames([".", "..", "..."], 400)).left(10 * s).top(-6 * s)))
+      .when(!grumpy && !!th && !chatting && !atCooler, (e) => e.child(bubble(txt(th.sym, 12, ink)).left(11 * s).top(-6 * s)));
   }
 
   render() {
@@ -698,6 +717,7 @@ export default class Office extends View {
     const list = p.demo ? DEMO : agents();
     this.list = list;
     this.mumAddress = list[0]?.address ?? null;
+    this.trixieAddress = list[1]?.address ?? null;
     const usedNames = new Set();
     for (const a of list) this.nameFor(a, usedNames);
     const crew = list;

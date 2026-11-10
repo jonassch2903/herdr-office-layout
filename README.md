@@ -3,7 +3,8 @@
 The **Office** layout for the Herdr app: a pixel-art office where every coding agent is a little
 office worker at a desk. Typing, stuck waiting on you, dozing after a finished job, or off at the
 water cooler: you can tell at a glance. The first worker is always Michels Mum, and she sneaks off
-to the smoking corner instead. See [office/RECIPE.md](office/RECIPE.md) for how it is built.
+to the smoking corner instead. The second is always Trixie: she sits turned around, dark-haired
+and red-faced, behind a speech bubble that never stops grumbling. See [office/RECIPE.md](office/RECIPE.md) for how it is built.
 
 ![Office](office/preview.png)
 
@@ -92,9 +93,10 @@ under it.
 - New agents walk in through the door to their desk.
 - Every worker looks different (hair, skin, hairstyle, glasses), and their shirt colour follows the
   kind of agent. Michels Mum always looks like a woman (long hair or a bun, a skirt, lipstick).
-  Every other worker gets an old-fashioned German name and a line under the desk with what they
-  are working on, taken from the terminal title. Desks get random clutter, and an office cat
-  roams the floor.
+  The second worker is always Trixie: dark hair, a flushed red face, a scowl, and a speech bubble
+  that cycles through complaints wherever she is. Every other worker gets an old-fashioned German
+  name and a line under the desk with what they are working on, taken from the terminal title.
+  Desks get random clutter, and an office cat roams the floor.
 - The clock shows the real time, the window goes from day to sunset to night and follows the
   seasons (snow, blossom and rain, summer sun, autumn leaves; a string of lights in December),
   and the room dims at night while desk lamps come on.

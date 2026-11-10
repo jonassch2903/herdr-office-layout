@@ -59,11 +59,16 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
    - **Workers**: pixel sprites at `s` screen px per art pixel, `s` in half-pixel steps and
      `k = s / 3`, so desks and workers always scale together. Seated (16×20, from
      behind, in a `#3d4454` office chair) or standing (12×17, front or back view, legs swinging).
+     Trixie is the seated exception: she turns around, so the front face with her red skin and
+     scowl shows over the chair.
      Random per agent but stable: hair (8 colours), skin (6 tones), hairstyle (short, long, bun,
      bald, spiky), glasses (30%). The shirt colour follows the agent kind (`claude #d97757`,
      `codex #2f3640`, `gemini #4f7dc9`, `opencode #8a62b8`, `pi #e58fb6`, `grok #5b5b66`, ...),
      otherwise random. The first worker, Michels Mum, always looks like a woman: long hair or a
-     bun, a coloured skirt while standing and lipstick in the front view.
+     bun, a coloured skirt while standing and lipstick in the front view. The second, Trixie,
+     always has `#151515` hair, `#d2604a` flushed skin, no glasses and a non-bald style; her front
+     view adds straight brows over the eyes and a wide, flat mouth, and she sits turned around so
+     that face is visible at the desk.
    - **Cat**: a 10×7 sprite in a random coat, roaming the walkways or sitting on a blocked
      worker's desk in front of the monitor; click it to pet it, click again while the `♥` is
      up to tease it with a red laser dot.
@@ -98,7 +103,9 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   per spot shows a 100px white speech bubble with one of 12 short German office lines. The speaker
   is the visitor with the lowest `hash(address)`; the other chat visitor keeps the animated `...`
   bubble, and thoughts are suppressed at those spots. The line is picked from `hash()` of the
-  address and the trip's `until`, so it stays the same for the whole stay.
+  address and the trip's `until`, so it stays the same for the whole stay. Trixie never uses
+  these lines: her bubble cycles through `WHINES` with `frames` (1600ms) in every status and at
+  every spot, and nobody else at her spot gets a talk line (a chat partner keeps `...`).
 - **Cat**: the cat walks the same walkways at 0.07 px/ms and rests 1–4s at most destinations
   (40% of the other rests last 8–23s). For each new destination, with 60% chance when someone is
   blocked, it goes to that worker's desk instead: it walks to the aisle and up to the seat, sits
@@ -121,9 +128,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   to their desk.
 - **Thoughts**: now and then a seated worker shows `?`, `!`, `♪`, `♥`, `...`, `☼`, `$` or `#`
   for a few seconds.
-- **Names and tasks**: the first worker on the floor is always Michels Mum. Every other worker
-  draws an old-fashioned German given name, unique among the agents on the floor and kept for the
-  session; a former first worker gets a normal name back if it loses the first desk. Under every
+- **Names and tasks**: the first worker on the floor is always Michels Mum, the second always
+  Trixie. Every other worker draws an old-fashioned German given name, unique among the agents on
+  the floor and kept for the session; a former first or second worker gets a normal name back if
+  it loses that desk. Under every
   occupied desk, below the name, is what the agent is working on: `a.title`, the terminal title
   OMP already reports, minus its `π >` or spinner/icon prefix (or the tab name when the title is
   only a shell path or program name), wrapped to the slot width so the whole title stays readable.
@@ -203,7 +211,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   `window_(x, now, seed)`), desk clutter, and per-agent looks seeded from a hash of the agent's
   address. The window derives hour and month from `now`: day/dusk/night, then snow, petals/rain,
   a sun or leaves, plus December lights. `look(a, { woman: true })` swaps in long hair or a bun,
-  a skirt and lipstick.
+  a skirt and lipstick; `look(a, { grumpy: true })` pins Trixie's dark hair, red skin and scowl.
 - `mods/office/main.js`: one mod, three roles by `props().role`. The room (wall, floor,
   furniture) is a retained nested view (`cx.new`), rebuilt only when the size, the minute or the
   door changes. A 50ms timer advances walks (one straight leg at a time), so legs start at their
@@ -219,9 +227,10 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
   and `lastTurn`), and the cat's `watch`; `moveCat()` steers it to blocked desks, and
   `startLaser()`/`laserHop()` send it after the dot. `tick()` expires the petting bubble (`pet`)
   and the 6s laser (`laser`). `SMALL_TALK` lines are chosen per stay in `worker()`.
-  `render()` also sets `mumAddress` to the first agent:
-  `nameFor()` gives that address `Michels Mum`, `look()` renders her as a woman, and `tick()` picks
-  from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
+  `render()` also sets `mumAddress` to the first agent and `trixieAddress` to the second:
+  `nameFor()` gives them `Michels Mum` and `Trixie`, `look()` renders Mum as a woman and Trixie
+  with her dark hair, red face and scowl, `worker()` loops `WHINES` in her bubble, and `tick()`
+  picks Mum's spots from `MUM_SPOTS` (the cooler entries replaced by `smoke`).
 - `props: {demo: true}` on `office-floor` and on `office-rail` fills it with 12 sample workers in
   every state, in three spaces, who wander four times as often, shows three inert sample tabs
   (`web`/`api`/`infra`) instead of the host's tabs, and disables agent focus and the hire and
@@ -315,5 +324,7 @@ One fixed look: no system title bar, root background `#8a5530`, theme `graphite`
 - The first desk is Michels Mum, drawn with long hair or a bun and a skirt. Only she walks to the
   `RAUCHEN` corner, where she stands with a cigarette and a `~` smoke wisp; she never walks to the
   water cooler.
+- The second desk is Trixie: always named Trixie, dark hair, a flushed red face and a scowl, with
+  a speech bubble that keeps cycling through complaints wherever she is.
 - Clicking a worker focuses that agent's terminal. Every desk shows the worker's name and current
   task; hovering it shows the full sticky note.
